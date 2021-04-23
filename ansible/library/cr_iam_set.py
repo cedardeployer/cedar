@@ -1,6 +1,5 @@
 #!/usr/bin/python
-import botocore
-overwrite_oldest_policy_versions = True
+
 
 DOCUMENTATION = '''
 ---
@@ -77,6 +76,7 @@ from collections import defaultdict
 
 try:
     import boto3
+    import botocore
     from botocore.exceptions import ClientError, MissingParametersError, ParamValidationError
     HAS_BOTO3 = True
 
@@ -84,6 +84,8 @@ try:
 except ImportError:
     import boto
     HAS_BOTO3 = False
+    
+overwrite_oldest_policy_versions = True
 
 
 def isPolicyManaged(attachedPolicies, policygiven):

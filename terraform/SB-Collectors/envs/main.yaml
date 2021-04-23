@@ -1,0 +1,54 @@
+---
+  sb_permissions:
+    account_id: '814235745176'
+    cross_acct_role: cross_deployers_admin
+    dynamodbs:
+    - arn: arn:aws:dynamodb:us-east-1:814235745176:table/sb_permissions
+      hash_key_name: PK
+      hash_key_type: STRING
+      id: 08a0ff10-cb85-47d0-ad69-9aed81e584f2
+      indexes:
+      - hash_key_name: PK
+        hash_key_type: STRING
+        name: PK-LSI-SK-index
+        range_key_name: LSI-SK
+        range_key_type: STRING
+        type: all
+      - hash_key_name: email
+        hash_key_type: STRING
+        name: pk_by_email
+        range_key_name: null
+        type: global_all
+      - hash_key_name: PK
+        hash_key_type: STRING
+        name: index_by_name
+        range_key_name: name
+        range_key_type: STRING
+        type: global_all
+      - hash_key_name: PK
+        hash_key_type: STRING
+        name: GCP_ID
+        range_key_name: __id
+        range_key_type: STRING
+        type: global_all
+      name: sb_permissions
+      range_key_name: SK1
+      range_key_type: STRING
+      read_capacity: 1
+      state: present
+      status: ACTIVE
+      streamspec:
+        StreamEnabled: true
+        StreamViewType: NEW_AND_OLD_IMAGES
+      write_capacity: 1
+    eid: Secberus_prodbvYJq0nb28qwMOnNMfyd/91NZWRvL4VBMLa4DZ/XeK2FoiaZqKBu3vJ1pAQVONZNkYs73iQ7OB6aZSUkAjKHiBBDKAx6B4998iryFhfE4SUjFYH0RQZNSStLzzzXDAYEgz1JGnW0dcmLpJ/RYr7UgKS0tvGRFwzOfSYVmDOz1zE6RhNzmD28wwMnT611Yd5fPpmKONnwG+QdOD+8jC3QTS7RlSJL7q7HPf416zZIFlE3o/ey1SIsJo9QpgvQWD+Z0UZKff+oyut6OViJcSv+3ZU3AC51K49ncpkX7Ii+mCqMRUbCLwH3tPbVSZnrBrf5753yy8WVQCBrGg==
+    env: xx-PRODUCTION
+    error_path: ~/Ansible_Deployer
+    region: us-east-1
+    role_duration: 3600
+    skipping:
+      methods: false
+      models: false
+      options: false
+      resources: false
+      stage: false

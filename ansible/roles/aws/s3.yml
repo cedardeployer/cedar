@@ -8,6 +8,7 @@
     aws_secret_key: "{{ secret }}"
     security_token: "{{ token }}"
     state: "{{ item.state }}"
+    name:  "{{ item.name }}"
     policy: "{{ item.policy_file }}"
     versioning: "{{ item.versioning }}"
   with_items: "{{ project.buckets }}"
@@ -19,6 +20,7 @@
     aws_access_key: "{{ access }}"
     aws_secret_key: "{{ secret }}"
     security_token: "{{ token }}"
+    name:  "{{ item.name }}"
     state: "{{ item.item.state }}"
     policy: "{{ item.item.policy_file }}"
   when: "{{item.changed == false and item.item.policy_file is defined}}"
@@ -29,6 +31,7 @@
     aws_access_key: "{{ access }}"
     aws_secret_key: "{{ secret }}"
     security_token: "{{ token }}"
+    name:  "{{ item.name }}"
     state: "{{ item.item.state }}"
     versioning: "{{ item.item.versioning }}"
   when: item.changed == false and item.item.versioning is defined
