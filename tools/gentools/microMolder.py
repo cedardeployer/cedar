@@ -156,8 +156,7 @@ class LambdaMolder():
         SLACK_MAP = loadServicesMap(accountOrigin['services_map'], 'slack')
         SIGNER_MAP = loadServicesMap(accountOrigin['services_map'], 'signer')
         DOMAIN_MAP = loadServicesMap(accountOrigin['services_map'], 'domains')
-        CFRONT_MAP = loadServicesMap(
-            accountOrigin['services_map'], 'cloudfront')
+        CFRONT_MAP = loadServicesMap(accountOrigin['services_map'], 'cloudfront')
 
         skipping = error_path = None
         if 'error_path' in accountOrigin:
@@ -174,8 +173,7 @@ class LambdaMolder():
                 "resources": False
             }
 
-        roles, resourceRole = describe_role(
-            lambdaM.lrole, aconnect, self.origin['account'], True if 'api' in types else False)
+        roles, resourceRole = describe_role(lambdaM.lrole, aconnect, self.origin['account'], True if 'api' in types else False)
         layers = self.layer_describe(lambdaM.layers, aconnect)
         if "python" not in lambdaM.runtime:
             logger.warning('[W] runtime using [{lambdaM.runtime}] is depreciated please use [Python 3]!')
@@ -185,8 +183,7 @@ class LambdaMolder():
         if 'api' in types:
             try:
                 if targetAPI:
-                    apis, stages, models, authorizeDict = self.describe_gateway(
-                        target, 'lambda', aconnect, resourceRole, targetAPI)
+                    apis, stages, models, authorizeDict = self.describe_gateway(target, 'lambda', aconnect, resourceRole, targetAPI)
                     # apis, stages, models, authorizeDict = self.describe_gateway('*','lambda', aconnect, resourceRole, targetAPI)
             except Exception as e:
                 msg = "%s  ::  :: %s" % (e, traceback.format_exc())
@@ -197,22 +194,20 @@ class LambdaMolder():
         # raise
         events = None
         buckets = None
-        test = True
-        if not test:
-            if 'cloudwatch' in types:
-                events = self.describe_cloudevents(
-                    target, lambdaM.farn, aconnect)
-            if 's3' in types:
-                buckets = self.describe_s3events(target, aconnect)
-                raise
+
+        print(types)
+        if 'cloudwatch' in types:
+            events = self.describe_cloudevents(target, lambdaM.farn, aconnect)
+        if 's3' in types:
+            buckets = self.describe_s3events(target, aconnect)
+            
         dynoTriggers = None
         if 'dynamodb' in types:
             dynoTriggers = self.describe_dynoTriggers(target, aconnect)
             # print(dynoTriggers)
             # raise
 
-        taskMain, rootFolder, targetLabel = ansibleSetup(
-            self.temp, target, isFullUpdate)
+        taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target, isFullUpdate)
         if layers:
             print("Layer functions currently not supported!!")
             # taskMain.insert(2, {"import_tasks":  "../aws/layers.yml", "vars": {"project": '{{ project }}'}})
@@ -269,7 +264,8 @@ class LambdaMolder():
             taskMain.append({"import_tasks": "../aws/lambda_update.yml",
                              "vars": {"project": '{{ project }}'}})
         if events:
-            taskMain.append({"import_tasks": "../aws/cldwatch_rule.yml",
+            # taskMain.append({"import_tasks": "../aws/cldwatch_rule.yml",
+            taskMain.append({"import_tasks": "../aws/cloudwatch.yml",
                              "vars": {"project": '{{ project }}'}})
         if buckets:
             taskMain.append({"import_tasks": "../aws/s3.yml",
@@ -455,20 +451,20 @@ class LambdaMolder():
             ########################################################
 
             if events:  # NEW
-                crules = []
+                brules = []
                 for rule in events:
                     description = "%s - Description by microMolder" % (
                         rule['Name'])
                     if 'Description' in rule:
                         description = rule['Description']
-                    crules.append({
+                    brules.append({
                         "name": rule['Name'],
                         "schedule_expression": rule['ScheduleExpression'],
                         "description": description,
                         "state": rule['State'],
                         "targets": rule['targets']
                     })
-                defaultVar[targetLabel].update({"cloud_rules": crules})
+                defaultVar[targetLabel].update({"bridge_rules": brules})
 
             ########################################################
             ##############  S3 bucket Triggers   ###################

@@ -132,7 +132,7 @@ def ec2Enabled(current, code_zip, event, envs):
                     },
                 },
             ]
-    userDATA = "#!/bin/bash \n aws s3 rm s3://%s/logs_%s_%s.txt\n yum install aws-cli -y \n aws s3 cp s3://%s/ansible_deploy/%s ~/nanoAnsible.zip \n yum install zip -y \n mkdir -p ~/nanoAnsible \n ls -la ~/ \n unzip ~/nanoAnsible.zip -d ~/nanoAnsible \n cd ~/nanoAnsible \n INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)\n \n aws ec2 create-tags --region %s  --resources $INSTANCE_ID --tags Key=%s,Value=%s Key=Name,Value=%s \n python -c 'import awsKHE_tags as aws; aws.ecsMASTER(\"%s\",\"%s\",\"%s\")' >> logs.txt 2>&1\n aws s3 cp logs.txt s3://%s/logs_%s_%s.txt \n echo '...terminating ec2 $INSTANCE_ID' \n echo $INSTANCE_ID \n %s ec2 --region %s terminate-instances --instance-ids $INSTANCE_ID" % (
+    userDATA = "#!/bin/bash \n aws s3 rm s3://%s/logs_%s_%s.txt\n yum install aws-cli -y \n aws s3 cp s3://%s/ansible_deploy/%s ~/nanoAnsible.zip \n yum install zip -y \n mkdir -p ~/nanoAnsible \n ls -la ~/ \n unzip ~/nanoAnsible.zip -d ~/nanoAnsible \n cd ~/nanoAnsible \n INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)\n \n aws ec2 create-tags --region %s  --resources $INSTANCE_ID --tags Key=%s,Value=%s Key=Name,Value=%s \n python -c 'import awsCEDAR_tags as aws; aws.ecsMASTER(\"%s\",\"%s\",\"%s\")' >> logs.txt 2>&1\n aws s3 cp logs.txt s3://%s/logs_%s_%s.txt \n echo '...terminating ec2 $INSTANCE_ID' \n echo $INSTANCE_ID \n %s ec2 --region %s terminate-instances --instance-ids $INSTANCE_ID" % (
             Main_bucket, account, mRegion,
             Main_bucket, code_zip,
             mRegion, 'DIVISION', 'CR',ec2_Name,
@@ -191,14 +191,7 @@ def ec2Enabled(current, code_zip, event, envs):
                 "Name": pName
             },
             UserData=userDATA
-        # UserData="#!/bin/bash \n echo ECS_CLUSTER=" + cluster_name + " >> /etc/ecs/ecs.config"
-        )
-    # python -c 'import awsKHE_tags as aws; aws.ecsMASTER(acct,bucket,configpath)
-    #python -c 'import awsKHE_tags as aws; aws.ecsMASTER("791949374647","kaplan-khe-dcs-tagging","dcs-config/auditCONFIG.yaml")'
 
-    # UserData = "#!/bin/bash \n export AWS_ACCESS_KEY_ID=AKIAJRRU5AJT52UOG54Q\n export AWS_SECRET_ACCESS_KEY=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\n export AWS_DEFAULT_REGION=us-east-1\n yum install aws-cli -y \n aws s3 cp s3://%s/dcs-config/%s ~/tagger.zip \n yum install zip -y \n mkdir -p ~/tagger \n ls -la ~/ \n unzip ~/tagger.zip -d ~/tagger \n cd ~/tagger \n python -c 'import awsKHE_tags as aws; aws.ecsMaster(%s,%s,%s)' > logs.txt \n aws s3 cp file://logs.txt s3://%s/logs_%s_%s.txt \n INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)\n \n aws ec2 create-tags --resources $INSTANCE_ID --tags Key=Name,Value=%s \n echo '...terminating ec2 $INSTANCE_ID' \n echo $INSTANCE_ID \n aws2 ec2 terminate-instances --instance-ids $INSTANCE_ID" % (
-    # Main_bucket, code_zip, accountID, event['s3']['bucket'], event['s3']['config'], Main_bucket, accountID, mRegion,
-    # ec2_Name)
 
     return lacct
 

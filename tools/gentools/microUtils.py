@@ -131,11 +131,15 @@ def describe_role(name, aconnect, acct, apiTRigger=False):
     givenPolicies = aplcy['AttachedPolicies']
     if apiTRigger:
         logger.info(f'Using API trigger policy: {name}')
+        logger.info(f'Policies...: {givenPolicies}')
 
         pname = name
         p_arn = "arn:aws:iam::%s:policy/%s" % (acct, pname)
-        pDefinition = describe_policy(p_arn, pname, aconnect)
-        policies.append(pDefinition)
+        try:
+            pDefinition = describe_policy(p_arn, pname, aconnect)
+            policies.append(pDefinition)
+        except ClientError as e:
+            logger.info(f'[E] no policy named:{p_arn} found.. using only Policies...: {givenPolicies}')
     if len(givenPolicies) != 0:
         for plcy in givenPolicies:
             polName = plcy['PolicyName']
@@ -400,6 +404,7 @@ def config_updateRestricted(path, config):
         path = parts[0]
 
     path = "%s/RESTRICTED.yaml" % (parts[0])
+    print(path)
     secrets = loadYaml(path)['services']['eID']
     suffix = ""
     if 'sharedas' in config:
