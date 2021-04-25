@@ -488,7 +488,8 @@ class LambdaMolder():
                     if 'Filter' in bkt['config']:
                         s3Filter = bkt['config']['Filter']['Key']['FilterRules']
                         s3dict = {n['Name']: n['Value'] for n in s3Filter}
-                        s3Trigger.update({'filter': s3dict})
+                        # s3Trigger.update({'filter': s3dict})
+                        s3Trigger.update(s3dict)
                     bucket_list.append(s3Trigger)
 
                 defaultVar[targetLabel].update({"buckets": bucket_list})

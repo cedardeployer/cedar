@@ -446,7 +446,7 @@ def remove_policy_permission(module, aws, statement_id):
 # ---------------------------------------------------------------------------------------------------
 
 
-def lambda_event_stream(module, aws):
+def lambda_event_stream(module, aws, region):
     """
     Adds, updates or deletes lambda stream (DynamoDb, Kinesis) envent notifications.
     :param module:
@@ -454,7 +454,7 @@ def lambda_event_stream(module, aws):
     :return:
     """
 
-    client = aws.client('lambda')
+    client = aws.client('lambda', region_name=region)
     facts = dict()
     changed = False
     current_state = 'absent'
@@ -560,7 +560,7 @@ def lambda_event_stream(module, aws):
     return dict(changed=changed, ansible_facts=dict(lambda_stream_events=facts))
 
 
-def lambda_event_s3(module, aws):
+def lambda_event_s3(module, aws, region):
     """
     Adds, updates or deletes lambda s3 event notifications.
 
@@ -569,7 +569,7 @@ def lambda_event_s3(module, aws):
     :return dict:
     """
 
-    client = aws.client('s3')
+    client = aws.client('s3', region_name=region)
     api_params = dict()
     changed = False
     current_state = 'absent'
@@ -685,7 +685,7 @@ def lambda_event_s3(module, aws):
     return dict(changed=changed, ansible_facts=dict(lambda_s3_events=current_lambda_configs))
 
 
-def lambda_event_sns(module, aws):
+def lambda_event_sns(module, aws, region):
     """
     Adds, updates or deletes lambda sns event notifications.
 
@@ -694,7 +694,7 @@ def lambda_event_sns(module, aws):
     :return dict:
     """
 
-    client = aws.client('sns')
+    client = aws.client('sns', region_name=region)
     api_params = dict()
     changed = False
     current_state = 'absent'
@@ -806,6 +806,7 @@ def main():
         source_params=dict(type='dict', required=True, default=None),
         alias=dict(required=False, default=None),
         version=dict(type='int', required=False, default=0),
+        region=dict(required=False, default='us-east-1'),
         )
     )
 
@@ -826,7 +827,7 @@ def main():
 
     this_module_function = getattr(this_module, 'lambda_event_{0}'.format(module.params['event_source'].lower()))
 
-    results = this_module_function(module, aws)
+    results = this_module_function(module, aws, region)
 
     module.exit_json(**results)
 
