@@ -623,8 +623,11 @@ def cr_method(state, module, client, name, resource, main_model):
             try:
                 # module.fail_json(msg="[T] 002 cr_method METHOD  >>-> {0}> {1}> {2}".format(main_model.httpMethod, restApiId, resourceId))
                 method_add(module, client, oDefined, True)
+                # nMethod = client.get_method(restApiId=restApiId, resourceId=resourceId, httpMethod=main_model.httpMethod)
                 client.delete_method(restApiId=restApiId, resourceId=resourceId, httpMethod=main_model.httpMethod)
                 found = False
+            except botocore.exceptions.ReadTimeoutError as e:
+                 module.fail_json(msg="[E] cr_method delete_method Timed OUT {0} {1} {2} ".format(restApiId, resourceId, main_model.httpMethod))
             except ClientError as e:
                 PATH = module.params.get('error_path')
                 if PATH:
@@ -739,7 +742,8 @@ def main():
     except Exception as e:
         module.fail_json(msg="Connection Error - {0}".format(e))
 # check if trust_policy is present -- it can be inline JSON or a file path to a JSON file
-
+    # dd = client.get_method(restApiId="qgg9vh90w3", resourceId="b51kpc",httpMethod="DELETE")
+    # module.fail_json(msg="what is region - {0} {1}".format(region, dd))
     name = module.params.get('name')
     delta_type = module.params.get('apigw_type')
 
