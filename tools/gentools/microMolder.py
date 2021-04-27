@@ -36,6 +36,7 @@ from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, l
 from microUtils import describe_role, config_updateRestricted
 from microFront import CloudFrontMolder
 from microGateway import ApiGatewayMolder
+from microUtils import describe_regions, account_replace_inline
 # sudo ansible-playbook -i windows-servers SB-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -157,6 +158,7 @@ class LambdaMolder():
         SIGNER_MAP = loadServicesMap(accountOrigin['services_map'], 'signer')
         DOMAIN_MAP = loadServicesMap(accountOrigin['services_map'], 'domains')
         CFRONT_MAP = loadServicesMap(accountOrigin['services_map'], 'cloudfront')
+        REGIONS = describe_regions()
 
         skipping = error_path = None
         if 'error_path' in accountOrigin:
@@ -554,31 +556,38 @@ class LambdaMolder():
             option = "main_%s" % account['all']
             mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
             writeYaml(defaultVar, mainIn)
-            account_replace("%s.yaml" % mainIn, str(acctID), str(simple_id))
+            yaml_main = "%s.yaml" % mainIn
+            account_replace(yaml_main, str(acctID), str(simple_id))
 
             for key, value in DOMAIN_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(domainObj[key]))
+                account_replace(yaml_main, str(value), str(domainObj[key]))
 
             for key, value in BUCKET_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(bucketObj[key]))
+                account_replace(yaml_main, str(value), str(bucketObj[key]))
 
             for key, value in TOKEN_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(tokenObj[key]))
+                account_replace(yaml_main, str(value), str(tokenObj[key]))
 
             for key, value in NETWORK_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(networkObj[key]))
+                account_replace(yaml_main, str(value), str(networkObj[key]))
 
             for key, value in COGNITO_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(cognitoObj[key]))
+                account_replace(yaml_main, str(value), str(cognitoObj[key]))
 
             for key, value in SLACK_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(slackObj[key]))
+                account_replace(yaml_main, str(value), str(slackObj[key]))
 
             for key, value in SIGNER_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(signerObj[key]))
+                account_replace(yaml_main, str(value), str(signerObj[key]))
 
             for key, value in CFRONT_MAP[acctPlus].items():
-                account_replace("%s.yaml" % mainIn, str(value), str(cfrontObj[key]))
+                account_replace(yaml_main, str(value), str(cfrontObj[key]))
+            if "_" in akey:  # KEY found _ account with many ENVs in single account
+                for m_region in REGIONS:  # default_region
+                    gw_match = "arn:aws:apigateway:%s" % (m_region)
+                    account_replace_inline(yaml_main, gw_match, m_region, default_region)
+                    lb_match = "arn: arn:aws:lambda:%s" % (m_region)
+                    account_replace_inline(yaml_main, lb_match, m_region, default_region)
 
         logger.info('Creating a main.yaml for ansible using dev')
         opt = "main_%s.yaml" % accountOrigin['all']
