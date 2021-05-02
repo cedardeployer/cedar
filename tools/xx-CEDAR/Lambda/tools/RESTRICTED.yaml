@@ -1,0 +1,143 @@
+---
+services:
+  eID:
+    "734407909462":
+      value: secberus_devC/mTiqSWxSg51awVDbxm9Og0maWJcKSSxLZJHMlUdpACtxId6HPZl2JT12AKxQTAUKLJhX5m9tWidJs21OeZ/IXPWX/bN+fy+WuyM78BccivgVPOeK6ST1dbDa885dhRopS0UhN0nTdp6yzUHeFi59nrvHAfdqf2TxMWkfHhVjzrOyl6tOUvRzELG6n+DXrk4eSUBIOXGJWo2kqx7XgB7zSItls+FkybxgZV68oMjJX79XFfp5wYJeS7sslTXFUmk1Vn/KD03tJDR0wjjH2DdOxcnKMNp7rJ4+jN8UpjoVURX18AUgl+bQeZync1MWjk0Rq3nyI1h2hjScAA==
+    "928731909404_stage":
+      value: secberus_TestStageDiff7Un3Bu4hrmioB0sGvg7bmu/4RfWVc3g6vYV0I8gDp/GaecGVs7mgqDC64FStrK8deployerNEW86UDd0o470kJsXKmAXIQJJpAp3g0FFvOR54ccpUPtZ7BfHFv6S/e/EWr97t3U80WJ9HLku6OCBs0nwHM+mBcoLJGMbgMKfJeVmsAjIbmx/wRR+jPnHbfGptZxTumELKWoaCNO9eGCbW3FFUZ2dXOkl+yfWKsS0cZIdhVmoUqzgZk/pY2gFMHCQeiftMmaDVfdQT76gUni+r545nXNZJsfiso8hw8h+Zx0htQrt7/9M58cXsEx5ALx67GXDgbRl/OU9g==
+    "928731909404_test":
+      value: secberus_TestStageDiff7Un3Bu4hrmioB0sGvg7bmu/4RfWVc3g6vYV0I8gDp/GaecGVs7mgqDC64FStrK8deployerNEW86UDd0o470kJsXKmAXIQJJpAp3g0FFvOR54ccpUPtZ7BfHFv6S/e/EWr97t3U80WJ9HLku6OCBs0nwHM+mBcoLJGMbgMKfJeVmsAjIbmx/wRR+jPnHbfGptZxTumELKWoaCNO9eGCbW3FFUZ2dXOkl+yfWKsS0cZIdhVmoUqzgZk/pY2gFMHCQeiftMmaDVfdQT76gUni+r545nXNZJsfiso8hw8h+Zx0htQrt7/9M58cXsEx5ALx67GXDgbRl/OU9g==
+    "814235745176":
+      value: Secberus_prodbvYJq0nb28qwMOnNMfyd/91NZWRvL4VKEEPERSZ/XeK2FoiaZqKBu3vJ1pAQVONZNkYs73iQ7OB6aZSUkAjKHiBBDKAx6B4998iryFhfE4SUjFYH0RQZNSStLzzzXDAYEgz1JGnW0dcmLpJ/RYr7UgKS0tvGRFwzOfSYVmDOz1zE6RhNzmD28wwMnT611Yd5fPpmKONnwG+QdOD+8jC3QTS7RlSJL7q7HPf416zZIFlE3o/ey1SIsJo9QpgvQWD+Z0UZKff+oyut6OVIN3+now3AC51K49ncpkX7Ii+mCqMRUbCLwH3tPbVSZnrBrf5753yy8WVQCBrGg==
+  domains:
+    "734407909462":
+      portal: https://dev.secberus.io
+    "928731909404_test":
+      portal: https://test.secberus.io
+    "928731909404_stage":
+      portal: https://stage.secberus.io
+    "814235745176":
+      portal: https://cloud.secberus.io
+  slack:
+    "734407909462":
+      ocrChannel: sb-dev-ocr
+    "928731909404_test":
+      ocrChannel: sb-test-ocr
+    "928731909404_stage":
+      ocrChannel: sb-stage-ocr
+    "814235745176":
+      ocrChannel: sb-prod-ocr
+  cognito:
+    "734407909462":
+      sb_clientID: 5ss22c364r76pdupriub53d5j9
+      sb_userpoolID: us-east-1_5TylwTY1h
+      clientID: x0x00xxx00xx0xxxxx0x0xxx # Not the same as above
+      secret: 6LfAC14aAAAAAIaTl6naOsNkjQ-V-ODmh01-CLKC
+      userpoolID: us-east-1_xxA00AAx0 # Not the same as above
+    "928731909404_test":
+      sb_clientID: 5qpujimmpra26s8fstsrt5o8ui
+      sb_userpoolID: us-east-1_P771Zaun1
+      clientID: x0x00xxx00xx0xxxxx0x0xxx # Not the same as above
+      secret: 6LfAC14aAAAAAIaTl6naOsNkjQ-V-ODmh01-CLKC
+      userpoolID: us-east-1_xxA00AAx0 # Not the same as above
+    "928731909404_stage":
+      sb_clientID: 4mkao50imq36vncepr34h3v4ub
+      sb_userpoolID: us-east-2_HfPTE6o7m
+      clientID: x0x00xxx00xx0xxxxx0x0xxx # Not the same as above
+      secret: 6LfAC14aAAAAAIaTl6naOsNkjQ-V-ODmh01-CLKC
+      userpoolID: us-east-1_xxA00AAx0 # Not the same as above
+    "814235745176":
+      sb_clientID: 3qve74rcpgtt0b87aokknbb93h
+      sb_userpoolID: us-east-1_OgRBFJD9L
+      clientID: x0x00xxx00xx0xxxxx0x0xxx # Not the same as above
+      secret: 6LfAC14aAAAAAIaTl6naOsNkjQ-V-ODmh01-CLKC
+      userpoolID: us-east-1_xxA00AAx0 # Not the same as above
+  S3:
+    "734407909462":
+      bucket: sb-portal-dev
+      lambda: sb-lambda-dev
+      athena: sb-dynamoathena-dev
+    "928731909404_test":
+      bucket: sb-portal-test
+      lambda: sb-lambda-test
+      athena: sb-dynamoathena-test
+    "928731909404_stage":
+      bucket: sb-portal-stage
+      lambda: sb-lambda-stage
+      athena: sb-dynamoathena-stage
+    "814235745176":
+      bucket: sb-portal
+      lambda: sb-lambda
+      athena: sb-dynamoathena
+  token:
+    "734407909462":
+      Upload_signer: arn:aws:kms:us-east-1:734407909462:key/d9c523c3-4018-40dd-8bc4-0875c691c433
+    "928731909404_test":
+      Upload_signer: arn:aws:kms:us-east-1:734407909462:key/d9c523c3-4018-40dd-8bc4-0875c691c433
+    "928731909404_stage":
+      Upload_signer: arn:aws:kms:us-east-1:734407909462:key/d9c523c3-4018-40dd-8bc4-0875c691c433
+    "814235745176":
+      Upload_signer: arn:aws:kms:us-east-1:734407909462:key/d9c523c3-4018-40dd-8bc4-0875c691c433
+  cloudfront:
+    "734407909462":
+      cf_ID: E135481AFTSG1J
+    "928731909404_test":
+      cf_ID: E1QCUK46VB119N
+    "928731909404_stage":
+      cf_ID: EEBQLVGOURCQ6
+    "814235745176":
+      cf_ID: E241V2ECVWYVPP
+  signer:
+    "734407909462":
+      cf_key: APKAI4DUM3V2ASLE5FDQ
+    "928731909404_test":
+      cf_key: APKAIVVGPHVM6QJJHWYQ
+    "928731909404_stage":
+      cf_key: APKAIVVGPHVM6QJJHWYQ
+    "814235745176":
+      cf_key: APKAJSYEJC6VGYNN4X3A
+  RDS:
+    "734407909462":
+      name: dev
+      db: db.dev.xx.com
+      vpc: vpc-0000x000
+      nat: subnet-00x00x00
+      vpc_subnet_ids:
+        - subnet-000x0x00
+        - subnet-000x0x01
+        - subnet-000x0x02
+      vpc_security_group_ids:
+        - sg-0xx0x00
+    "928731909404_test":
+      name: test
+      db: db.test.xx.com
+      vpc: vpc-0000x000
+      nat: subnet-00x00x00
+      vpc_subnet_ids:
+        - subnet-000x0x00
+        - subnet-000x0x01
+        - subnet-000x0x02
+      vpc_security_group_ids:
+        - sg-0xx0x00
+    "928731909404_stage":
+      name: test
+      db: db.test.xx.com
+      vpc: vpc-0000x000
+      nat: subnet-00x00x00
+      vpc_subnet_ids:
+        - subnet-000x0x00
+        - subnet-000x0x01
+        - subnet-000x0x02
+      vpc_security_group_ids:
+        - sg-0xx0x00
+    "814235745176":
+      name: test
+      db: db.test.xx.com
+      vpc: vpc-0000x000
+      nat: subnet-00x00x00
+      vpc_subnet_ids:
+        - subnet-000x0x00
+        - subnet-000x0x01
+        - subnet-000x0x02
+      vpc_security_group_ids:
+        - sg-0xx0x00

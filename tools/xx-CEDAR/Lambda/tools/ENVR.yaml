@@ -1,0 +1,139 @@
+---
+# Definitions
+target2DefineDev:
+  account: "734407909462"
+  services_map: "RESTRICTED.yaml"
+  role_reg: "-{2}-"
+  all: sb-dev
+  role_definer: cross_deployers_admin
+  #clientID: x0x00xxx00xx0xxxxx0x0xxx
+  #userpoolID: us-east-1_xxA00AAx0
+  assume_role: True
+  error_path: ~/Ansible_Deployer
+  skipping:
+    methods: false
+    options: false
+    models: false
+    stage: false
+    resources: false
+  role_TTL: 600
+  region: us-east-1
+  triggers:
+   - api
+   - s3
+   - cloudwatch
+   - dynamodb
+target2DefineTest:
+  account: "928731909404"
+  services_map: "RESTRICTED.yaml"
+  all: sb-test
+  sharedas: _test
+  role_definer: cross_deployers_admin
+  #clientID: x0x00xxx00xx0xxxxx0x0xxx
+  #userpoolID: us-east-1_xxA00AAx0
+  assume_role: True
+  error_path: ~/Ansible_Deployer
+  skipping:
+    methods: false
+    options: false
+    models: false
+    stage: false
+    resources: false
+  role_TTL: 600
+  region: us-east-1
+  triggers:
+   - api
+   - s3
+   - cloudwatch
+   - dynamodb
+
+target2DefineProd:
+  account: "814235745176"
+  services_map: "RESTRICTED.yaml"
+  all: sb-prod
+  role_definer: sb-cross-keepers
+  #clientID: x0x00xxx00xx0xxxxx0x0xxx
+  #userpoolID: us-east-1_xxA00AAx0
+  assume_role: True
+  error_path: ~/Ansible_Deployer
+  skipping:
+    methods: false
+    options: false
+    models: false
+    stage: false
+    resources: false
+  role_TTL: 600
+  region: us-east-1
+  triggers:
+   - api
+   - s3
+   - cloudwatch
+   - dynamodb
+
+accounts:
+  "734407909462":
+    all: sb-dev
+    title: sb-DEVELOPMENT
+    change: True
+    tagOverwrite: False
+    #clientID: x0x00xxx00xx0xxxxx0x0xxx
+    #userpoolID: us-east-1_xxA00AAx0
+    tagLabels:
+      - DIVISION
+      - Name
+      - APPLICATION
+    role: cross_deployers_admin
+  "928731909404_test":
+    all: sb-test
+    title: sb-TEST
+    # suffix: "-test"  BETA only
+    change: True
+    tagOverwrite: False
+    #clientID: x0x00xxx00xx0xxxxx0x0xxx
+    #userpoolID: us-east-1_xxA00AAx0
+    tagLabels:
+      - DIVISION
+      - Name
+      - APPLICATION
+    role: cross_deployers_admin
+  "928731909404_stage":
+    all: xx-stage
+    title: xx-STAGING
+    #api_suffix: "-stage"   in Beta  used to allow two envs in same region/account
+    #lambda_suffix: "-stage"   in Beta  used to allow two envs in same region/account
+    #dynamo_suffix: "-stage"   in Beta  used to allow two envs in same region/account
+    region_deploy: us-east-2
+    change: True
+    tagOverwrite: False
+    clientID: x0x00xxx00xx0xxxxx0x0xxx
+    userpoolID: us-east-1_xxA00AAx0
+    tagLabels:
+      - DIVISION
+      - Name
+      - APPLICATION
+    role: cross_deployers_admin
+  "814235745176":
+    all: sb-prod
+    title: sb-PRODUCTION
+    change: True
+    tagOverwrite: False
+    clientID: x0x00xxx00xx0xxxxx0x0xxx
+    userpoolID: us-east-1_xxA00AAx0
+    tagLabels:
+      - DIVISION
+      - Name
+      - APPLICATION
+    role: sb-cross-keepers
+
+
+
+
+
+
+
+
+
+
+
+
+
