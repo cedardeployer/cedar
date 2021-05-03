@@ -30,9 +30,10 @@ import distutils
 
 # from awsconnect import awsConnect
 
+from microGatewayHttp import HttpGatewayMolder
 from microUtils import writeYaml, account_replace, loadServicesMap, ansibleSetup, loadConfig
 from microUtils import describe_role, roleCleaner, account_inject_between
-from microUtils import describe_regions, account_replace_inline
+from microUtils import describe_regions, account_replace_inline, file_replace_obj_found
 
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)
@@ -41,23 +42,31 @@ logger = logging.getLogger(__name__)
 
 class ApiGatewayMolder():
     origin = None
-
+    httpGateway = None
     temp = None
 
     def Cooker(self, target):
         lambda_describe(target)
 
-    def __init__(self, directory, islambda=False):
+        
+    def __init__(self, directory, root=None):
         global dir_path
-        if not islambda:
-            temp = "%s/%s" % (dir_path, directory)
+        self.directory = directory
+        if root:
+            temp = "%s/%s" % (root, directory)
         else:
-            temp = '/tmp'
+            temp = "%s/%s" % (dir_path, directory)
         self.temp = temp
         if not os.path.exists(temp):
             os.makedirs(temp)
         else:
             logger.warning(f'{temp} already exists--remove or rename.')
+
+    def api_http(self):
+        if self.httpGateway:
+            return self.httpGateway
+        self.httpGateway = HttpGatewayMolder()
+        return self.httpGateway
 
     #############################################
     # #####   [ USAGE PLAN KEYs ]#################
@@ -504,13 +513,20 @@ class ApiGatewayMolder():
         final = baseList + rlist
         return final
 
+    def getALL_http_apis(self, client, position=None):
+        gw = self.api_http()
+        return gw.getALL_http_apis(client)
+        
+
         # get api, resource, method, integration and responses, models
 
     def describe_gateway(self, resourceNname, resourceType, aconnect, resourceRole=None, targetAPI=None):
         client = aconnect.__get_client__('apigateway')
+        client2 = aconnect.__get_client__('apigatewayv2') 
         # client = boto3.client('apigateway')
         # apis=client.get_rest_apis()
         apis = self.getAll_rest_apis(client)
+        apis = apis + self.getALL_http_apis(client2)
         integratedAPIs = []
         stages = {}
         models = {}
@@ -518,23 +534,36 @@ class ApiGatewayMolder():
         addedResource = {}
         possibleOptions = {}
 
-        print("\n    ************************************")
+        print("\n  ** ** ******************************** ****")
         print(f"     API GATEWAY - {targetAPI} - START")
-        print("    ************************************")
+        print("  **  ******************************* ****")
         logger.debug(f'APIs: {apis}')
-        #print(targetAPI)
+        # print(targetAPI)
 
         GREEDY = False
         if '*' == resourceNname:
             GREEDY = True
         # for api in apis['items']:
         for api in apis:
-            id = api['id']
-            name = api['name']
+            if 'id' in api:
+                id = api['id']
+            elif 'ApiId' in api:
+                id = api['ApiId']
+            if 'name' in api:
+                name = api['name']
+            elif 'Name' in api:
+                name = api['Name']
             if targetAPI is not None:
                 if name.lower() != targetAPI.lower():
                     continue
-
+            protocol = "REST"
+            if 'ProtocolType' in api:
+                protocol = api['ProtocolType']
+            print(protocol)
+            if protocol == "HTTP":
+                print("********* WARNING  !!!!!!!")
+                print("[W] HTTP fix needed... continue")
+                continue
             # resources = client.get_resources( restApiId=id,limit=500)
             resources = self.getAllResources(client, id)
 
@@ -607,7 +636,7 @@ class ApiGatewayMolder():
                     function = method['httpMethod']
                     logger.debug(f'Function: {function}; Resource Type: {resourceType}')
                     if function.lower() not in resourceType.lower() and resourceType != 'lambda' and resourceType != '*':
-                        if not 'options' in function.lower():
+                        if 'options' not in function.lower():
                             continue
                     integratedType = None
                     if not 'methodIntegration' in method:
@@ -999,21 +1028,23 @@ class ApiGatewayMolder():
             # account_replace(file_defaults, str(acctID), str(akey))
                 #
             if directorysNeeded:
-                networkObj = NETWORK_MAP[akey]
-                bucketObj = BUCKET_MAP[akey]
-                cognitoObj = COGNITO_MAP[akey]
                 option = "main_%s" % account['all']
                 mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
                 writeYaml(defaultVar, mainIn)
                 #print("----> file: %s" % (mainIn))
                 yaml_main = "%s.yaml" % mainIn
+                account_replace(yaml_main, str(targetLabel), "<environment_placeholder>")
                 account_replace(yaml_main, str(acctID), str(simple_id))
-                for key, value in BUCKET_MAP[acctPlus].items():
-                    account_replace(yaml_main, str(value), str(bucketObj[key]))
-                for key, value in NETWORK_MAP[acctPlus].items():
-                    account_replace(yaml_main, str(value), str(networkObj[key]))
-                for key, value in COGNITO_MAP[acctPlus].items():
-                    account_replace(yaml_main, str(value), str(cognitoObj[key]))
+                account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
+
+                ALL_MAPS = [BUCKET_MAP, NETWORK_MAP, COGNITO_MAP]
+                ########################################################
+                ########################################################
+                # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
+                file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS)
+                # STRING REPLACE ON ALL MAPS ---ENDS-- here #####
+                ########################################################
+                ########################################################
                 if "_" in akey:  # KEY found _ account with many ENVs in single account
                     for m_region in REGIONS:  # default_region
                         match = "arn:aws:apigateway:%s" % (m_region)
@@ -1043,13 +1074,16 @@ class ApiGatewayMolder():
                 logger.info(f'{rootFolder} --> {sendto}')
                 distutils.dir_util.copy_tree(rootFolder, sendto)
                 ansibleRoot = sendto.split('roles/')[0]
-                targets = ['%s' % targetString]
+                # targets = ['%s' % targetString]
+
+                target_file = '%s_%s' % (acctID, targetString)
+                targets = [target_file]
                 rootYML = [{"name": "micro modler for ALL gateways resource -%s" % target,
                             "hosts": "dev",
                             "remote_user": "root",
                             "roles": targets}]
                 # ansibleRoot
-                writeYaml(rootYML, ansibleRoot, targetString)
+                writeYaml(rootYML, ansibleRoot, target_file)
         else:
             option = "defaults_main"
             mainIn = "%s/%s" % (rootFolder, option)
@@ -1089,12 +1123,11 @@ class ApiGatewayMolder():
         iamRole = accountOrigin['triggeredRole']
         logger.info(f'API-lambda trigger role: {iamRole}')
 
-        roles, resourceRole = describe_role(
-            iamRole, aconnect, acctID, True if 'api' in types else False)
+        roles, resourceRole = describe_role(iamRole, aconnect, acctID, True if 'api' in types else False)
         targetString = roleCleaner(target)
-        if not "[" in target:
+        if "[" not in target:
             logger.error(f'[E] arguments given do not contain methods for resource: {target}')
-            raise
+            raise Exception(f'[E] arguments given do not contain methods for resource: {target}')
         method = re.search(r'\[(.*?)\]', target).group(1)
 
         # (target,'lambda', aconnect, resourceRole, targetAPI)
@@ -1110,8 +1143,9 @@ class ApiGatewayMolder():
 
         print(f'    Total API endpoints: {len(apis)}')
 
-        taskMain, rootFolder, targetLabel = ansibleSetup(
-            self.temp, targetString, isFullUpdate, skipFiles)
+        target_file = '%s_%s' % (acctID, targetString)
+        # taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, targetString, isFullUpdate, skipFiles)
+        taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target_file, isFullUpdate, skipFiles)
         taskMain = taskMain[0:2]
         taskMain.append({"import_tasks": "../aws/agw_model.yml",
                          "vars": {"project": '{{ project }}'}})
@@ -1228,23 +1262,21 @@ class ApiGatewayMolder():
                 # defaultVar[targetLabel].update({ "api_usage": stage_list })
                 #
             if directorysNeeded:
-                networkObj = NETWORK_MAP[akey]
-                bucketObj = BUCKET_MAP[akey]
-                cognitoObj = COGNITO_MAP[akey]
                 option = "main_%s" % account['all']
                 mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
                 writeYaml(defaultVar, mainIn)
-                account_replace("%s.yaml" % mainIn, str(acctID), str(simple_id))
-                for key, value in BUCKET_MAP[acctPlus].items():
-                    account_replace("%s.yaml" % mainIn, str(
-                        value), str(bucketObj[key]))
-                for key, value in NETWORK_MAP[acctPlus].items():
-                    account_replace("%s.yaml" % mainIn, str(
-                        value), str(networkObj[key]))
-                for key, value in COGNITO_MAP[acctPlus].items():
-                    account_replace("%s.yaml" % mainIn, str(
-                        value), str(cognitoObj[key]))
                 yaml_main = "%s.yaml" % mainIn
+                account_replace(yaml_main, str(targetLabel), "<environment_placeholder>")
+                account_replace(yaml_main, str(acctID), str(simple_id))
+                account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
+                ALL_MAPS = [BUCKET_MAP, NETWORK_MAP, COGNITO_MAP]
+                ########################################################
+                ########################################################
+                # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
+                file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS)
+                # STRING REPLACE ON ALL MAPS ---ENDS-- here #####
+                ########################################################
+                ########################################################
 
                 if "_" in akey:  # KEY found _ account with many ENVs in single account
                     for m_region in REGIONS:  # default_region
@@ -1267,13 +1299,14 @@ class ApiGatewayMolder():
                 distutils.dir_util.copy_tree(rootFolder, sendto)
                 logger.info(f"Writing final YAML: {file_tasks}")
                 ansibleRoot = sendto.split('roles/')[0]
-                targets = ['%s' % targetString]
+                # targets = ['%s' % targetString]
+                targets = [target_file]
                 rootYML = [{"name": "micro modler for gateways resource -%s" % target,
                             "hosts": "dev",
                             "remote_user": "root",
                             "roles": targets}]
                 # ansibleRoot
-                writeYaml(rootYML, ansibleRoot, targetString)
+                writeYaml(rootYML, ansibleRoot, target_file)
         else:
             option = "defaults_main"
             mainIn = "%s/%s" % (rootFolder, option)

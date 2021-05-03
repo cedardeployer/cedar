@@ -12,7 +12,9 @@ import datetime
 
 from tools.gentools.main_Deployer import TemporalDeployer
 from tools.gentools.microUtils import roleCleaner, s3_put, writeYaml
-
+##
+##
+# pip install ansible -t ansible_in
 
 class Orchestrater():
     __dir = '/tmp'
