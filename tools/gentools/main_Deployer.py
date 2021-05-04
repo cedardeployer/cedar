@@ -1,5 +1,5 @@
 import logging
-import log_config
+
 import os
 import sys
 import re
@@ -19,6 +19,10 @@ from microGateway_test import ApiGatewayTester
 import awsconnect
 from awsconnect import awsConnect
 
+try:
+    import log_config
+except Exception:
+    print("colors not loaded...")
 
 # sudo ansible-playbook -i windows-servers API_Name.yaml -vvvv
 # dir_path = os.path.dirname(__file__)
@@ -30,9 +34,10 @@ logger = logging.getLogger('main_Deployer')
 
 
 class TemporalDeployer():
-
+    root = None
     def __init__(self, directory=None):
-        pass
+        if directory:
+            self.root = directory
 
 # CREATE DEFINITIONS
 
@@ -54,15 +59,15 @@ class TemporalDeployer():
         aconnect.connect()
         results = None
         if type_in == "-CF":
-            cm = CloudFrontMolder("ansible")
+            cm = CloudFrontMolder("ansible", self.root)
             acctID, target, acctTitle, ready = cm.cfront_describe(
                 svc_in, aconnect, origin, global_accts, sendto)
         elif type_in == "-L":
-            lm = LambdaMolder("ansible")
+            lm = LambdaMolder("ansible", self.root)
             acctID, target, acctTitle, ready = lm.lambda_describe(
                 svc_in, aconnect, origin, global_accts, triggers, sendto, targetAPI, fullUpdate)
         elif type_in == "-G":
-            gm = ApiGatewayMolder("ansible")
+            gm = ApiGatewayMolder("ansible", self.root)
             if targetAPI == svc_in:
                 acctID, target, acctTitle, ready = gm.describe_GatewayALL(
                     svc_in, aconnect, origin, global_accts, triggers, sendto, targetAPI, fullUpdate, True)
@@ -70,7 +75,7 @@ class TemporalDeployer():
                 acctID, target, acctTitle, ready = gm.describe_GwResource(
                     svc_in, aconnect, origin, global_accts, triggers, sendto, targetAPI, fullUpdate, True)
         elif type_in == "-DY":
-            dy = DynamoMolder("ansible")
+            dy = DynamoMolder("ansible", self.root)
             acctID, target, acctTitle, ready = dy.define(
                 svc_in, aconnect, origin, global_accts, sendto)
         return acctID, target, acctTitle, ready
@@ -180,8 +185,7 @@ if __name__ == "__main__":
             sys.argv.append(sys.argv[7])
             sys.argv[7] = sys.argv[6]
         roleString = roleCleaner(role)
-        if not "roles/" in sendto:
-            sendto = "%s/%s" % (sendto, roleString)
+
         # targetAPI = str(sys.argv[7]).strip()   ### API_Name
         if len(sys.argv) > 7:
             targetAPI = str(sys.argv[7]).strip()
@@ -206,6 +210,11 @@ if __name__ == "__main__":
 
     origin = config_updateRestricted(dir_path, origin)  # going to previous dir
     global_accts = config_updateRestricted(dir_path, global_accts)  # going to previous dir
+    acctID = origin['account']
+    if sendto:
+        roleString = "%s_%s" % (acctID, roleString)
+        sendto = "%s/%s" % (sendto, roleString)
+
 
     triggers = origin['triggers']
     if triggers is None:

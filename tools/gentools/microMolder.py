@@ -17,6 +17,7 @@ from datetime import datetime, date
 from botocore.exceptions import ClientError
 # import json
 from shutil import copyfile
+from shutil import move
 # import fileinput
 import logging
 import urllib
@@ -32,8 +33,9 @@ import traceback
 # from context import FormatContext
 # import pyaml
 # pip install pyyaml
-from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
-from microUtils import describe_role, config_updateRestricted
+from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap
+from microUtils import loadConfig, ansibleSetup, roleCleaner
+from microUtils import describe_role, config_updateRestricted, file_replace_obj_found
 from microFront import CloudFrontMolder
 from microGateway import ApiGatewayMolder
 from microUtils import describe_regions, account_replace_inline
@@ -42,18 +44,25 @@ from microUtils import describe_regions, account_replace_inline
 dir_path = os.path.dirname(os.path.realpath(__file__))
 logger = logging.getLogger(__name__)
 
+
 class LambdaMolder():
     origin = None
     directory = None
+    bucket_path = 'data/lambdas/XX-CEDAR'
 
     temp = None
 
-    def __init__(self, directory):
+    def __init__(self, directory, root=None):
         global dir_path
         self.directory = directory
-        temp = "%s/%s" % (dir_path, directory)
+        if root:
+            temp = "%s/%s" % (root, directory)
+            self.directory = root
+        else:
+            temp = "%s/%s" % (dir_path, directory)
         self.temp = temp
         if not os.path.exists(temp):
+            print(temp)
             os.makedirs(temp)
         else:
             logger.warning(f'Directory {temp} already exists--remove or rename.')
@@ -67,44 +76,23 @@ class LambdaMolder():
             return []
         return [lyr['Arn'] for lyr in layers]
 
-    # def layer_describe(self, layers, aconnect):
-    #     # client = boto3.client('lambda')
-    #     outLayers = []
-    #     print("layers should be referenced directly from same source NOT rebuilt every time.")
-    #     if layers:
-    #         client = aconnect.__get_client__('lambda')
-    #         for lyr in layers:
-    #             splits = lyr['Arn'].split(":layer:")[1]
-    #             target, version = splits.split(":")
-    #             layer = client.get_layer_version(LayerName=target, VersionNumber=version)
-    #             cpath = layer['Content']['Location']
-    #             code = urllib.URLopener()
-    #             zipName = "layer_%s_%s.zip" % (target, version)
-    #             code.retrieve(cpath, zipName)
-    #             lObj = type('obj', (object,), {
-    #                 'name': target,
-    #                 'version': version,
-    #                 'LayerArn': layer['LayerArn'],
-    #                 'LayerVersionArn': layer['LayerVersionArn'],
-    #                 'description': layer['Description'],
-    #                 'CreatedDate': layer['CreatedDate'],
-    #                 'Version': layer['Version'],
-    #                 'LicenseInfo': layer['LicenseInfo'],
-    #                 'CompatibleRuntimes': layer['CompatibleRuntimes']
-    #             }
-    #             )
-    #             outLayers.append((lObj, zipName))
-    #     return outLayers
-
-    ###
-
-    def method_describe(self, target, aconnect):
+    def method_describe(self, acctID, target, aconnect):
         # client = boto3.client('lambda')
         client = aconnect.__get_client__('lambda')
         lmda = client.get_function(FunctionName=target)
         cpath = lmda['Code']['Location']
         #code = urllib.URLopener()
         zipName = "code_%s.zip" % (target)
+        if 'bucket' in os.environ:
+            print("making zip file %s_%s" % (acctID, zipName))
+            if not os.path.exists(self.directory):
+                os.makedirs(temp)
+            zipName = "/tmp/%s_%s" % (acctID, zipName)
+        else:
+            zipName = "%s/%s_%s" % (dir_path, acctID, zipName)
+        print(zipName)
+        print("*^*^*^*^*^&*")
+
         #code.retrieve(cpath, zipName)
         urllib.request.urlretrieve(cpath, zipName)
         # RevisionId
@@ -149,15 +137,17 @@ class LambdaMolder():
         if 'sharedas' in accountOrigin:
             acctPlus = acctID + accountOrigin['sharedas']
         assumeRole = accountOrigin['assume_role']
-        lambdaM, zipName = self.method_describe(target, aconnect)
-        NETWORK_MAP = loadServicesMap(accountOrigin['services_map'], 'RDS')
-        TOKEN_MAP = loadServicesMap(accountOrigin['services_map'], 'token')
-        COGNITO_MAP = loadServicesMap(accountOrigin['services_map'], 'cognito')
-        BUCKET_MAP = loadServicesMap(accountOrigin['services_map'], 'S3')
-        SLACK_MAP = loadServicesMap(accountOrigin['services_map'], 'slack')
-        SIGNER_MAP = loadServicesMap(accountOrigin['services_map'], 'signer')
-        DOMAIN_MAP = loadServicesMap(accountOrigin['services_map'], 'domains')
-        CFRONT_MAP = loadServicesMap(accountOrigin['services_map'], 'cloudfront')
+        # targetString = roleCleaner(target)
+        target_file = '%s_%s' % (acctID, target)
+        lambdaM, zipName = self.method_describe(acctID, target, aconnect)
+        NETWORK_MAP = loadServicesMap(accountOrigin['services_map'], 'RDS', self.bucket_path)
+        TOKEN_MAP = loadServicesMap(accountOrigin['services_map'], 'token', self.bucket_path)
+        COGNITO_MAP = loadServicesMap(accountOrigin['services_map'], 'cognito', self.bucket_path)
+        BUCKET_MAP = loadServicesMap(accountOrigin['services_map'], 'S3', self.bucket_path)
+        SLACK_MAP = loadServicesMap(accountOrigin['services_map'], 'slack', self.bucket_path)
+        SIGNER_MAP = loadServicesMap(accountOrigin['services_map'], 'signer', self.bucket_path)
+        DOMAIN_MAP = loadServicesMap(accountOrigin['services_map'], 'domains', self.bucket_path)
+        CFRONT_MAP = loadServicesMap(accountOrigin['services_map'], 'cloudfront', self.bucket_path)
         REGIONS = describe_regions()
 
         skipping = error_path = None
@@ -202,20 +192,21 @@ class LambdaMolder():
             events = self.describe_cloudevents(target, lambdaM.farn, aconnect)
         if 's3' in types:
             buckets = self.describe_s3events(target, aconnect)
-            
+
         dynoTriggers = None
         if 'dynamodb' in types:
             dynoTriggers = self.describe_dynoTriggers(target, aconnect)
             # print(dynoTriggers)
             # raise
-
-        taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target, isFullUpdate)
+        # taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target, isFullUpdate)
+        taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target_file, isFullUpdate)
         if layers:
             print("Layer functions currently not supported!!")
             # taskMain.insert(2, {"import_tasks":  "../aws/layers.yml", "vars": {"project": '{{ project }}'}})
         ###########################
         # AUTH LAMBDAS
         ###########################
+
         if authorizeDict:
             authorizers = authorizeDict
             authLambdas = []
@@ -224,13 +215,12 @@ class LambdaMolder():
                 if authIN['authType'] in 'custom':
                     l_arn = authIN['authorizerUri'].split(":function:")[1]
                     authTARGET = l_arn.split("/invocations")[0]
-                    authLam, authZipName = self.method_describe(
-                        authTARGET, aconnect)
-                    authRoles, authResourceRole = describe_role(
-                        authLam.lrole, aconnect, self.origin['account'], True)
+                    authLam, authZipName = self.method_describe(acctID, authTARGET, aconnect)
+                    authRoles, authResourceRole = describe_role(authLam.lrole, aconnect, self.origin['account'], True)
                     zipFile = "%s.zip" % authTARGET
                     zipLambda = "%s/%s/%s" % (rootFolder, 'files', zipFile)
-                    copyfile(authZipName, zipLambda)
+                    # copyfile(authZipName, zipLambda)
+                    move(authZipName, zipLambda)
                     rolename = authLam.lrole.split(":role/")[1]
                     aLambda = {
                         "name": authTARGET,
@@ -299,14 +289,6 @@ class LambdaMolder():
 
         for akey, account in accounts.items():
             default_region = 'us-east-1'
-            networkObj = NETWORK_MAP[akey]
-            bucketObj = BUCKET_MAP[akey]
-            cfrontObj = CFRONT_MAP[akey]
-            domainObj = DOMAIN_MAP[akey]
-            cognitoObj = COGNITO_MAP[akey]
-            tokenObj = TOKEN_MAP[akey]
-            slackObj = SLACK_MAP[akey]
-            signerObj = SIGNER_MAP[akey]
             if akey == acctPlus:
                 acctTitle = account['title']
 
@@ -334,6 +316,7 @@ class LambdaMolder():
             }
             if assumeRole:
                 accDetail.update({"cross_acct_role": account['role']})
+
             defaultVar = {targetLabel: accDetail}
             # add Policies
             role_list = []
@@ -395,6 +378,7 @@ class LambdaMolder():
             zipLambda = "%s/%s/%s" % (rootFolder, 'files', zipFile)
             # os.rename("code.zip", zipLambda)
             copyfile(zipName, zipLambda)
+            # move(zipName, zipLambda)
             otarget = target
             if suffix not in target and suffix:
                 otarget = "%s%s" % (target, suffix)
@@ -557,31 +541,20 @@ class LambdaMolder():
             mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
             writeYaml(defaultVar, mainIn)
             yaml_main = "%s.yaml" % mainIn
+
+            account_replace(yaml_main, str(targetLabel), "<environment_placeholder>")
             account_replace(yaml_main, str(acctID), str(simple_id))
+            account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
 
-            for key, value in DOMAIN_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(domainObj[key]))
+            ALL_MAPS = [DOMAIN_MAP, BUCKET_MAP, TOKEN_MAP, NETWORK_MAP, COGNITO_MAP, SLACK_MAP, SIGNER_MAP, CFRONT_MAP]
+            ########################################################
+            ########################################################
+            # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
+            file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS)
+            # STRING REPLACE ON ALL MAPS ---ENDS-- here #####
+            ########################################################
+            ########################################################
 
-            for key, value in BUCKET_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(bucketObj[key]))
-
-            for key, value in TOKEN_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(tokenObj[key]))
-
-            for key, value in NETWORK_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(networkObj[key]))
-
-            for key, value in COGNITO_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(cognitoObj[key]))
-
-            for key, value in SLACK_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(slackObj[key]))
-
-            for key, value in SIGNER_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(signerObj[key]))
-
-            for key, value in CFRONT_MAP[acctPlus].items():
-                account_replace(yaml_main, str(value), str(cfrontObj[key]))
             if "_" in akey:  # KEY found _ account with many ENVs in single account
                 for m_region in REGIONS:  # default_region
                     gw_match = "arn:aws:apigateway:%s" % (m_region)
@@ -600,297 +573,20 @@ class LambdaMolder():
         distutils.dir_util.copy_tree(rootFolder, sendto)
         # print(" -------==------===---- FINAL YAML file....")
         ansibleRoot = sendto.split('roles/')[0]
-        targets = ['%s' % target]
+        # targets = ['%s' % target]
+
+        targets = [target_file]
         rootYML = [{"name": "micro modler for lambda-%s" % target,
                     "hosts": "dev",
                     "remote_user": "root",
                     "roles": targets}]
         # ansibleRoot
-        writeYaml(rootYML, ansibleRoot, target)
+        writeYaml(rootYML, ansibleRoot, target_file)
         return acctID, target, acctTitle, True
-
-    # def describe_role(self, name, aconnect, apiTRigger=False):
-    #   client = aconnect.__get_client__('iam')
-    #   #client = boto3.client('iam')
-    #   if "/" in name:
-    #       name=name.split("/")[1]
-    #   #print(name)
-    #   #print(". oo kkk  ooo k kok")
-    #   roleData = client.get_role(RoleName=name)['Role']
-    #   del roleData['CreateDate']
-    #   arn = roleData['Arn']
-    #   roles=[]
-    #   aplcy = client.list_attached_role_policies(RoleName=name)
-    #   policies=[]
-    #   givenPolicies=aplcy['AttachedPolicies']
-    #   if apiTRigger:
-    #       print (" #########################################################")
-    #       print (" ########### ADDING Policy : SB-Lambda-APIGW. ############")
-    #       print (" #########################################################")
-    #       acct=self.origin['account']
-    #       pname="SB-Lambda-APIGW"
-    #       p_arn="arn:aws:iam::%s:policy/%s"%(acct, pname)
-    #       pDefinition =self.describe_policy(p_arn, pname, aconnect)
-    #       policies.append(pDefinition)
-    #   if len(givenPolicies) !=0:
-    #       for plcy in givenPolicies:
-    #           polName = plcy['PolicyName']
-    #           polARN = plcy['PolicyArn']
-    #           pDefinition =self.describe_policy(polARN, polName, aconnect)
-    #           policies.append(pDefinition)
-    #   roles.append({'name':name, 'data':roleData, 'policies':policies})
-    #   return roles, arn
-
-    # def describe_policy(self, arn, name, aconnect):
-    #   client = aconnect.__get_client__('iam')
-    #   #client = boto3.client('iam')
-    #   polMeta=client.get_policy(PolicyArn=arn)['Policy']
-    #   polDefined=client.get_policy_version(PolicyArn=arn, VersionId=polMeta['DefaultVersionId'])
-    #   #polDefined = client.get_role_policy(RoleName=name,PolicyName=polName)
-    #   print(" POLICY. %s...."%name)
-    #   print (polDefined)
-    #   doc=polDefined['PolicyVersion']['Document']
-    #   # print("------==polMeta=--------")
-    #   # print (polMeta)
-    #   description='SB-Default no description found'
-    #   if 'Description'in polMeta:
-    #       description=polMeta['Description']
-    #   path= polMeta['Path']
-    #   print ("  -->"+path)
-    #   return {'PolicyName':name,
-    #           'Path':path,
-    #           'PolicyDocument':doc,
-    #           'Description':description     }
-
-    # def describe_apiKey(self, resourceNname, resourceType):
-    #   pass
-
-    # def describe_apiUsage(self, resourceNname, resourceType):
-    #   pass
-
-    # def describe_stages(self, apiID, apiName, stages):
-    #   client = aconnect.__get_client__('apigateway')
-    #   #client = boto3.client('apigateway')
-    #   usage = client.get_usage_plans()['items']
-    #   for use in usage:
-    #       for stage in use['apiStages']:
-    #           if apiID in stage['apiId']:
-    #               stageLabel = stage['stage']
-    #               apiStage = "%s_%s"%(apiName,stageLabel)
-    #               if apiStage in stages:
-    #                   continue
-    #               stages.update({apiStage:{'stage':stageLabel,'api':apiName, 'state':'present'}})
-    #   return stages
-
-    # def getAllResources(self,client,restApiId, position=None):
-    #   rlist=[]
-    #   if position is None:
-    #       response = client.get_resources( restApiId=restApiId, limit=500)
-    #   else:
-    #       response = client.get_resources( restApiId=restApiId,position=position, limit=500)
-    #   baseList=response['items']
-    #   if "position" in response :
-    #       rlist=self.getAllResources(client,restApiId, response['position'])
-    #   final = baseList+rlist
-    #   return final
-
-    # def getAll_rest_apis(self,client, position=None):
-    #   rlist=[]
-    #   if position is None:
-    #       response = client.get_rest_apis(  limit=500)
-    #   else:
-    #       response = client.get_rest_apis( position=position, limit=500)
-    #   baseList=response['items']
-    #   if "position" in response :
-    #       rlist=self.getAll_rest_apis(client, response['position'])
-    #   final = baseList+rlist
-    #   return final
-
-        # get api, resource, method, integration and responses, models
 
     def describe_gateway(self, resourceNname, resourceType, aconnect, resourceRole=None, targetAPI=None):
         agw = ApiGatewayMolder("ansible")
-
         return agw.describe_gateway(resourceNname, resourceType, aconnect, resourceRole, targetAPI)
-
-    # def describe_gateway(self, resourceNname, resourceType, aconnect , resourceRole=None,targetAPI=None):
-
-    #   client = aconnect.__get_client__('apigateway')
-    #   #client = boto3.client('apigateway')
-    #   #apis=client.get_rest_apis()
-    #   apis=self.getAll_rest_apis(client)
-    #   integratedAPIs = []
-    #   stages={}
-    #   addedResource={}
-    #   possibleOptions={}
-    #   print ("*********************************************************************")
-
-    #   print ("                  API GATEWAY                                              ")
-    #   print ("*********************************************************************")
-    #   print ( apis)
-
-    #   print ("*********************************************************************")
-    #   print (targetAPI)
-    #   #for api in apis['items']:
-    #   for api in apis:
-    #       id = api['id']
-    #       name= api['name']
-    #       if targetAPI is not None:
-    #           if name.lower() != targetAPI.lower():
-    #               continue
-
-    #       #resources = client.get_resources( restApiId=id,limit=500)
-    #       resources = self.getAllResources(client,restApiId=id)
-
-    #       print ("                            API GATEWAY       resources                                       ")
-    #       print ("     resources    %s     "%resources)
-    #       #for rest in resources['items']:
-    #       for rest in resources:
-    #           path= rest['path']
-    #           mId=rest['id']
-    #           parentId = None
-    #           if 'parentId' in rest:
-    #               parentId=rest['parentId']
-    #           if not 'resourceMethods' in rest:
-    #               parent =rest
-    #               continue
-    #           for key,value in rest['resourceMethods'].items():
-
-    #       ### ONLY FOR TESTINNG
-    #               # if not 'GET' in key:
-    #               #     continue
-    #       ### DELETE ABOVE !!!!!!!!!
-
-    #               print ("      *API*     ")
-    #               print ("   @#@#. 002. #@#@ %s %s  client.get_method(restApiId=%s,resourceId=%s,httpMethod=%s)"%(name, path, id, mId, key) )
-    #               integrated = None
-    #               mInfo=value
-    #               print value
-    #               # try:
-    #               #     integrated = client.get_integration(restApiId=id, resourceId=mId, httpMethod=key)
-    #               #     del integrated['ResponseMetadata']
-    #               # except ClientError as e:
-    #               #     print(e.response['Error']['Message'])
-
-    #               #print integrated
-    #               method = client.get_method( restApiId=id,resourceId=mId,httpMethod=key)
-    #               del method['ResponseMetadata']
-    #               authType = method['authorizationType']
-    #               keyRequired=method['apiKeyRequired']
-    #               integratedType=None
-    #               if not 'methodIntegration' in method:
-    #                   continue
-    #               methodIntegration = method['methodIntegration']
-    #               print (" method:")
-    #               print (method)
-    #               #method = client.get_method( restApiId='20iv84vxh9',resourceId='i8b9of',httpMethod='GET')
-    #               # if not 'uri' in methodIntegration:
-    #               #     # print(".    - -- - 002-- -   ?")
-    #               #     # print ( methodIntegration )
-    #               #     continue
-    #               operationName=rModels=sModels=authName=requestParameters=authScope=None
-    #               methodResponse=None
-    #               if 'methodResponses' in method:
-    #                   methodResponse =method['methodResponses']
-    #                   # print("~~~~~1")
-    #                   # print (methodResponse)
-    #                   # print("~~~~~1bb")
-    #                   if '200' in methodResponse:
-    #                       if 'responseModels' in methodResponse['200']:
-    #                           mm = methodResponse['200']['responseModels']
-    #                           sModels={}
-    #                           for mkey , mvalue in mm.items():
-    #                               sModels.update({mkey:mvalue})
-
-    #               if 'requestModels' in method:
-    #                   sm = method['requestModels']
-    #                   rModels={}
-    #                   # print("~~~~~2")
-    #                   # print(sm)
-    #                   # print("~~~~~2bb")
-    #                   for rkey , rvalue in sm.items():
-    #                       rModels.update({rkey:rvalue})
-    #               integration=None
-    #               if 'uri' in methodIntegration:
-    #                   integration = methodIntegration['uri']
-    #               if rModels is None:
-    #                   rModels={}
-    #               if sModels is None:
-    #                   sModels={}
-    #               if requestParameters is None:
-    #                   requestParameters={}
-    #               if methodResponse is None:
-    #                   methodResponse={}
-    #               if integration is None:
-    #                   integration={}
-
-    #               if 'requestParameters' in method:
-    #                   requestParameters=method['requestParameters']
-    #               if 'authorizerId' in method:
-    #                   auth = client.get_authorizer(restApiId=id,  authorizerId=method['authorizerId'] )
-    #                   authName = auth['name']
-    #               if 'authorizationScopes' in method:
-    #                   authscope = method['authorizationScopes']
-    #               # api id, stage id.
-    #               stages=self.describe_stages(id, name, stages)
-    #               add =False
-    #               if resourceType in integration and resourceNname in integration:
-    #                   add=True
-    #               elif key == "OPTIONS":
-    #                   possibleOptions.update( {path:{'name':name,
-    #                       'parentid':parentId,
-    #                       'credentials': None,
-    #                       'state': 'present',
-    #                       'id':mId,
-    #                       'operationlabel':operationName ,
-    #                       'requestparameters': requestParameters,
-    #                       'authscope': authScope,
-    #                       'requestmodels': rModels,
-    #                       'responsemodels': sModels,
-    #                       'authorizationType': authType,
-    #                       'authName': authName,
-    #                       'apiKeyRequired': keyRequired,
-    #                       'type': integratedType,
-    #                       'path': path,
-    #                       'httpMethod':method['httpMethod'],
-    #                       'methodIn': methodIntegration,
-    #                       'methodResponse': methodResponse } })
-    #                   # if 'COGNITO' in authType:
-    #                   # print ("  . . .1 . .  ")
-    #                   # print (method)
-    #                   # print ("  . . .2 . .  ")
-    #               if add:
-    #                   addedResource.update({path:mId})
-    #                   if not 'credentials' in methodIntegration:
-    #                       methodIntegration.update({'credentials':resourceRole})
-    #                   integratedAPIs.append(
-    #                       {'name':name,
-    #                       'parentid':parentId,
-    #                       'credentials': resourceRole,
-    #                       'state': 'present',
-    #                       'id':mId,
-    #                       'operationlabel':operationName ,
-    #                       'requestparameters': requestParameters,
-    #                       'authscope': authScope,
-    #                       'requestmodels': rModels,
-    #                       'responsemodels': sModels,
-    #                       'authorizationType': authType,
-    #                       'authName': authName,
-    #                       'apiKeyRequired': keyRequired,
-    #                       'type': integratedType,
-    #                       'path': path,
-    #                       'httpMethod':method['httpMethod'],
-    #                       'methodIn': methodIntegration,
-    #                       'methodResponse': methodResponse }    )
-
-    #   for rK,rV in addedResource.items():  #Ensure OPTIONS picked up for Methods gathered
-    #       if rK in possibleOptions:
-    #           integratedAPIs.append(possibleOptions[rK])
-
-    #   #raise ValueError(" stopping now for check...")
-    #   if len(integratedAPIs) ==0:
-    #       return None
-    #   return integratedAPIs, stages
 
     def describe_cloudevents(self, target, functionArn, aconnect):
         events = []

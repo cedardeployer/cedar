@@ -28,9 +28,13 @@ logger = logging.getLogger(__name__)
 class DynamoMolder():
     origin = None
 
-    def __init__(self, directory):
+    def __init__(self, directory, root=None):
         global dir_path
-        temp = "%s/%s" % (dir_path, directory)
+        self.directory = directory
+        if root:
+            temp = "%s/%s" % (root, directory)
+        else:
+            temp = "%s/%s" % (dir_path, directory)
         self.temp = temp
         if not os.path.exists(temp):
             os.makedirs(temp)
@@ -235,6 +239,8 @@ class DynamoMolder():
             acctPlus = acctID + accountOrigin['sharedas']
         assumeRole = accountOrigin['assume_role']
         tableObj, triggers = self.behavior_describe(target, aconnect)
+
+        target_file = '%s_%s' % (acctID, target)
         # for trigger in triggers:
         #     trigger
         # acctTitle = None
@@ -253,7 +259,8 @@ class DynamoMolder():
                 "resources": False
             }
 
-        taskMain, rootFolder, targetLabel = ansibleSetup( self.temp, target, True)
+        # taskMain, rootFolder, targetLabel = ansibleSetup( self.temp, target, True)
+        taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target_file, True)
         taskWithFiles = [
             {"import_tasks": "../aws/sts.yml", "vars": {"project": '{{ project }}'}},
             {"import_tasks": "../aws/cr_dynamodb.yml",
@@ -318,7 +325,11 @@ class DynamoMolder():
             option = "main_%s" % account['all']
             mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
             writeYaml(defaultVar, mainIn)
-            account_replace("%s.yaml" % mainIn, str(acctID), str(simple_id))
+            yaml_main = "%s.yaml" % mainIn
+            account_replace(yaml_main, str(targetLabel), "<environment_placeholder>")
+            account_replace(yaml_main, str(acctID), str(simple_id))
+            account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
+
             verify = True
             if suffix not in target and suffix:
                 account_inject_between("%s.yaml" % mainIn, ":function:", "\n", suffix, 'suffix', verify)
@@ -336,13 +347,15 @@ class DynamoMolder():
             logger.info(f'{rootFolder} --> {sendto}')
             distutils.dir_util.copy_tree(rootFolder, sendto)
             ansibleRoot = sendto.split('roles/')[0]
-            targets = ['%s' % target]
+            # targets = ['%s' % target]
+
+            targets = [target_file]
             rootYML = [{"name": "micro modler for lambda-%s" % target,
                         "hosts": "dev",
                         "remote_user": "root",
                         "roles": targets}]
             # ansibleRoot
-            writeYaml(rootYML, ansibleRoot, target)
+            writeYaml(rootYML, ansibleRoot, target_file)
         return acctID, target, acctTitle, True
 
 

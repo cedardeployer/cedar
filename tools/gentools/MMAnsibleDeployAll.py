@@ -44,10 +44,11 @@ try:
     os.environ['bucket']
     import ansible.inventory
     import ansible.playbook
-    import ansible.runner
+    # import ansible.runner
     import ansible.constants
     from ansible import utils
-    from ansible import callbacks
+    # from ansible import callbacks
+    local_dev = False
 except Exception:
     print("[W] LOCAL DEPLOYMENT")
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
@@ -73,8 +74,9 @@ def ansibleResetDefinition(role, target, static_path=None):
 
 def ansibleDeleteCache(role, baseDir):
     rolePath = "%s/ansible/%s" % (baseDir, role)
-    print("[W] removing directory %s" % (rolePath))
-    os.remove(rolePath)
+    if os.path.exists(rolePath):
+        print("[W] removing directory %s" % (rolePath))
+        shutil.rmtree(rolePath)
 
 
 def run_playbook(**kwargs):
@@ -83,7 +85,10 @@ def run_playbook(**kwargs):
     runner_cb = callbacks.PlaybookRunnerCallbacks(stats, verbose=utils.VERBOSITY)
 
     # use /tmp instead of $HOME
-    ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
+    if 'bucket' in os.environ:
+        ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
+    else:
+        ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
 
     out = ansible.playbook.PlayBook(
         callbacks=playbook_cb,

@@ -40,6 +40,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 logger = logging.getLogger(__name__)
 user_home = str(Path.home())
 
+
 class FormatSafeDumper(yaml.SafeDumper):
     def represent_decimal(self, data):
         return self.represent_scalar('tag:yaml.org,2002:str', str(data))
@@ -94,6 +95,7 @@ def ansibleSetup(temp, target, isFullUpdate, skipFiles=False):
         # CREATE Template TASkS
     targetLabel = target.replace("-", "_")
     targetLabel = targetLabel.replace("*", "_")
+    targetLabel = "A" + targetLabel
     taskMain = [{"name": "INITIAL PROJECT SETUP  project VAR", "set_fact": {"project": "{{ %s }}" % targetLabel}}
                 ]
     if not skipFiles:
@@ -114,7 +116,6 @@ def describe_regions(ec2_client=None):
         ec2_client = boto3.client('ec2')
     response = ec2_client.describe_regions()['Regions']
     return [rg['RegionName'] for rg in response]
-
 
 
 def describe_role(name, aconnect, acct, apiTRigger=False):
@@ -170,6 +171,107 @@ def describe_policy(arn, name, aconnect):
             'Description': description}
 
 
+def s3_copy_key(fromBucket, toBucket, fromKey, toKey, resource=None):
+    if resource is None:
+        resource = boto3.resource('s3')
+    if toKey[0] == "/":
+        toKey = toKey[1:]
+    copy_source = {
+        'Bucket': fromBucket,
+        'Key': fromKey
+    }
+    client = resource.meta.client
+    extn = os.path.splitext(toKey)[1]
+    extension = extn[1:]
+    #extra_args={'ContentType': mime}
+    # k = client.head_object(Bucket = fromBucket, Key = fromKey)
+    # m = k["Metadata"]
+    # m["new_metadata"] = "value"
+
+    mimeType = getMimeType(extension)
+    # client.copy_object(Bucket = toBucket, Key = toKey, CopySource = fromBucket + '/' + fromKey, Metadata = m, MetadataDirective='REPLACE')
+    client.copy_object(Bucket=toBucket, Key=toKey, CopySource=fromBucket + '/' + fromKey, ContentType=mimeType, MetadataDirective='REPLACE')
+
+
+def getMimeType(extension):
+    if '.' in extension:
+        extension = extension[1:]
+    extn = '.%s' % (extension)
+    if extn in images:
+        meta = 'image'
+    elif extn in texts:
+        meta = 'text'
+    elif extn in videos:
+        meta = 'video'
+    elif extn in audios:
+        meta = 'audio'
+    else:
+        meta = 'application'
+    # ### EXTENSIONS ####
+    if 'xlsx' in extn:
+        extension = 'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    elif 'doc' in extn:
+        extension = 'msword'
+    elif 'docx' in extn:
+        extension = 'vnd.openxmlformats-officedocument.wordprocessingml.document'
+    elif 'pptx' in extn:
+        extension = 'vnd.openxmlformats-officedocument.presentationml.presentation'
+    elif 'jpg' in extn:
+        extension = 'jpeg'
+
+    return '%s/%s' % (meta, extension)
+
+
+def s3_put_stream(bucket, targetKey, some_binary_data, resource=None):
+    if resource is None:
+        resource = boto3.resource('s3')
+    object = resource.Object(bucket, targetKey)
+    object.put(Body=some_binary_data)
+
+
+def s3_put(bucket, targetKey, localfile, resource=None):
+    if resource is None:
+        resource = boto3.resource('s3')
+    print(" S3 --> @%s/%s" % (bucket, targetKey))
+    if targetKey[0] == "/":
+        targetKey = targetKey[1:]
+    try:
+        extn = os.path.splitext(localfile)[1]
+        extension = extn[1:]
+        mimeType = getMimeType(extension)
+        resource.meta.client.upload_file(localfile, bucket, targetKey, ExtraArgs={'ContentType': mimeType})  # , 'ACL': "public-read"} )#, Metadata={'foo': 'bar'}
+        # s3.meta.client.upload_file("localfile.pdf","sb-buildresources","aorg.pdf")
+        return True
+    except ClientError as ex:
+        msg = "[E] during s3 push of report. file:%s target:%s/%s error:%s" % (localfile, bucket, targetKey, ex)
+        #self.slackSend(self.channelName,msg,self.current.slack_name, ":bomb:")
+        if ex.response['Error']['Code'] == "404":
+            # sqs_logger.warning(" the file  %s does not exist." % localfile)
+            print(" the file %s does not exist." % localfile)
+        else:
+            raise
+    return False
+
+def s3_get_stream(bucket, targetKey, encoding='utf-8', resource=None):
+    if resource is None:
+        resource = boto3.resource('s3')
+    # print(targetKey)
+    obj = resource.Object(bucket, targetKey)
+    if encoding is None:
+        return obj.get()['Body'].read()
+    else:
+        return obj.get()['Body'].read().decode(encoding)
+
+def file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS):
+    for SVC_MAP in ALL_MAPS:
+        typeObj = SVC_MAP[akey]
+        for key, value in SVC_MAP[acctPlus].items():
+            if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
+                print("[W] Dangerous replace found [%s]...skipping %s for %s" % (key, value, typeObj[key]))
+                continue
+            account_replace(yaml_main, str(value), str(typeObj[key]))
+
+
 def writeYaml(data, filepath, option=''):
     dd = {"---": data}
     fullpath = '%s%s.%s' % (filepath, option, 'yaml')
@@ -217,10 +319,12 @@ def account_replace_inline(filein, match, target_value, new_value):
     with open(filein, 'w') as file:
         file.write(filedata)
 
+
 def replace_inline_matched(line, match, target_value, new_value):
     if match in line:
         return line.replace(target_value, new_value)
     return line
+
 
 def account_inject_between(filein, num2Search, numB4, newNumber, appendType='suffix', verify=False):
     # Read in the file
@@ -293,9 +397,12 @@ def roleCleaner(roleString):
     return roleString
 
 
-def loadServicesMap(fullpath, domain='RDS'):
-
-    exp = loadYaml(fullpath)
+def loadServicesMap(fullpath, domain='RDS', base_path=None):
+    if 'bucket' in os.environ:
+        path = "%s/%s" % (base_path, fullpath)
+        exp = loadYamlStream(os.environ['bucket'], path)
+    else:
+        exp = loadYaml(fullpath)
     if domain:
         targets = exp['services'][domain]
     else:
@@ -321,8 +428,13 @@ def loadServicesMap(fullpath, domain='RDS'):
     # return targets
 
 
-def loadYaml(fullpath):
+def loadYamlStream(bucket, key, resource=None):
+    stream = s3_get_stream(bucket, key, 'utf-8', resource)
+    exp = yaml.load(stream, Loader=yaml.FullLoader)
+    return exp
 
+
+def loadYaml(fullpath):
     config_parser = configparser.RawConfigParser()
     config_file_path = f'{user_home}/.config/cedar/config'
     config_parser.read(config_file_path)
@@ -396,16 +508,22 @@ def loadConfig(fullpath, env):
     # return target, global_accts
 
 
-def config_updateRestricted(path, config):
+def config_updateRestricted(path, config, restrict_override=None):
     spliter = "/gentools"
     parts = [path]
     if spliter in path:
         parts = path.split(spliter)
         path = parts[0]
 
-    path = "%s/RESTRICTED.yaml" % (parts[0])
+    if restrict_override:
+        path = "%s/%s" % (parts[0], restrict_override)
+    else:
+        path = "%s/RESTRICTED.yaml" % (parts[0])
     print(path)
-    secrets = loadYaml(path)['services']['eID']
+    if 'bucket' in os.environ:
+        secrets = loadYamlStream(os.environ['bucket'], path)['services']['eID']
+    else:
+        secrets = loadYaml(path)['services']['eID']
     suffix = ""
     if 'sharedas' in config:
         suffix = config['sharedas']
