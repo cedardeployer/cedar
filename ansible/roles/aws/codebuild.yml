@@ -1,15 +1,19 @@
 ---
 #
 
-- name: echo codebuild
+- name: cb test
   aws_codebuild:
     aws_access_key: "{{ access }}"
     aws_secret_key: "{{ secret }}"
     security_token: "{{ token }}"
     region: "{{project.region | default(null)}}"
-
+    name: "{{ item.name }}"
+    source: "{{ item.source }}"
+    artifacts: "{{ item.artifacts }}"
+    service_role: "{{ item.serviceRole }}"
+    environment: "{{ item.environment }}"
   register: task_output
-  with_items: "{{ project.buildjobs }}"
+  with_items: "{{ project.codebuild }}"
 
 
 #- aws_codebuild:
@@ -25,13 +29,14 @@
 #        packaging: NONE
 #        type: CODEPIPELINE
 #        name: my_project
-#    environment:
+#    environment: {
 #        computeType: BUILD_GENERAL1_SMALL
 #        privilegedMode: "true"
 #        image: "aws/codebuild/docker:17.09.0"
 #        type: LINUX_CONTAINER
 #        environmentVariables:
 #            - { name: 'PROFILE', value: 'staging' }
+#    }
 #    encryption_key: "arn:aws:kms:us-east-1:123123:alias/aws/s3"
 #    region: us-east-1
 #    state: present

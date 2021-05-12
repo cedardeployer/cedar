@@ -13,7 +13,7 @@ import distutils
 # import sys
 
 # from microUtils import writeYaml,loadServicesMap, loadConfig, ansibleSetup
-from microUtils import ansibleSetup
+from microUtils import ansibleSetup, describe_role, writeJSON
 from microUtils import writeYaml, loadServicesMap
 # from microUtils import writeJSON
 # from microUtils import loadServicesMap
@@ -125,7 +125,12 @@ class CodeMolder():
             sys.exit('[E] Stopped')
 
         indexes = []
-        TableArn = dTable['arn']
+        cb_arn = dTable['arn']
+        cb_name = dTable['name']
+        cb_source = dTable['source']
+        cb_artifacts = dTable['artifacts']
+        cb_srole = dTable['serviceRole']
+        cb_env = dTable['environment']
         # TableId = dTable['TableId']
         # TableStatus = dTable['TableStatus']
 
@@ -197,8 +202,11 @@ class CodeMolder():
         # if 'SSEDescription' in dTable:
         #     SSEDescription = dTable['SSEDescription']
         obj = {
-            'name': target,
-            'arn': TableArn
+            'name': cb_name,
+            'source': cb_source,
+            'artifacts': cb_artifacts,
+            'serviceRole': cb_srole,
+            'environment': cb_env
         }
         # if 'StreamSpecification' in dTable:
         #     obj.update({'streamspec': streamSepcs})
@@ -237,10 +245,11 @@ class CodeMolder():
                 "stage": False,
                 "resources": False
             }
-
+        roles, resourceRole = describe_role('codebuild-generic', aconnect, acctID, False)
         taskMain, rootFolder, targetLabel = ansibleSetup( self.temp, target, True)
         taskWithFiles = [
             {"import_tasks": "../aws/sts.yml", "vars": {"project": '{{ project }}'}},
+            {"import_tasks": "../aws/IAM.yml", "vars": {"project": '{{ project }}'}},
             {"import_tasks": "../aws/codebuild.yml", "vars": {"project": '{{ project }}'}}
         ]
         taskRaw = taskMain[0]
@@ -249,29 +258,68 @@ class CodeMolder():
         # Write
         logger.info('Writing main yaml in tasks folder...')
         writeYaml(taskMain, f'{rootFolder}/tasks/main')
-        
+        # for akey, account in accounts.items():
+        #     default_region = "us-east-1"
+        #     if acctPlus == akey:
+        #         acctTitle = account['title']
+        #     prefix = suffix = ''
+        #     if 'suffix' in account or 'prefix' in account or 'contains' in account:
+        #         if 'suffix' in account:
+        #             suffix = account['suffix']
+        #     if 'region_deploy' in account:
+        #         default_region = account['region_deploy']
+        #     simple_id = akey
+        #     if "_" in simple_id:
+        #         simple_id = simple_id.split("_")[0]
+        #     eID = account['eID']
+        #     accDetail = {
+        #         "account_id": simple_id,
+        #         "env": account['title'],
+        #         "error_path": error_path,
+        #         "skipping": skipping,
+        #         "role_duration": 3600,
+        #         "region": default_region,
+        #         "eid": eID
+        #     }
+        #     if assumeRole:
+        #         accDetail.update({"cross_acct_role": account['role']})
+        #     defaultVar = {targetLabel: accDetail}
+        #
+        #     tobj_copy = copy.deepcopy(tableObj)
+        #     t_name = tableObj['name']
+        #     if suffix:
+        #         t_name = "%s%s" % (t_name, suffix)
+        #         tobj_copy.update({"name": t_name})
+        #
+        #     defaultVar[targetLabel].update({"codebuild": [tobj_copy]})
+        #
+
         for akey, account in accounts.items():
-            default_region = "us-east-1"
-            if acctPlus == akey:
+            default_region = 'us-east-1'
+            if akey == acctPlus:
                 acctTitle = account['title']
-            prefix = suffix = ''
+
+            eID = account['eID']
+            append = suffix = ''
             if 'suffix' in account or 'prefix' in account or 'contains' in account:
                 if 'suffix' in account:
                     suffix = account['suffix']
+
             if 'region_deploy' in account:
                 default_region = account['region_deploy']
             simple_id = akey
             if "_" in simple_id:
                 simple_id = simple_id.split("_")[0]
-            eID = account['eID']
             accDetail = {
                 "account_id": simple_id,
-                "env": account['title'],
                 "error_path": error_path,
                 "skipping": skipping,
+                "env": account['title'],
                 "role_duration": 3600,
                 "region": default_region,
-                "eid": eID
+                "eid": eID,
+                "roles": [],
+                "policies": []
             }
             if assumeRole:
                 accDetail.update({"cross_acct_role": account['role']})
@@ -283,9 +331,55 @@ class CodeMolder():
                 t_name = "%s%s" % (t_name, suffix)
                 tobj_copy.update({"name": t_name})
 
-            defaultVar[targetLabel].update({"dynamodbs": [tobj_copy]})
-            if triggers:
-                defaultVar[targetLabel].update({"dynamo_triggers": triggers})
+            # add Policies
+            role_list = []
+            role_policies = []
+
+            for role in roles:
+                rName = role['name']
+                rData = role['data']
+                rDescribe = "SB-Default no description found"
+                if 'Description' in rData:
+                    rDescribe = rData['Description']
+                rNamePlcy = "%s_%s" % (rName, "trust")
+                trustIn = "%s/%s/%s" % (rootFolder, 'files', rNamePlcy)
+                # print ".... dude.....look up......"
+                rfile = writeJSON(rData['AssumeRolePolicyDocument'], trustIn)
+                # print (role)
+                # exit()
+                roleIn = {
+                    "name": rName,
+                    "trust_policy_filepath": "{{ role_path }}/files/%s" % rfile,
+                    "type": "role",
+                    "state": "present",
+                    "path": rData['Path'],
+                    "description": rDescribe
+                }
+                # polices are in seperate list!!!!!
+                plcies = role['policies']
+                plcyNames = []
+                for rp in plcies:
+                    rpName = rp['PolicyName']
+                    rpDoc = rp['PolicyDocument']
+                    rpDescription = rp['Description']
+                    rpPath = rp['Path']
+                    fpIn = "%s/%s/%s" % (rootFolder, 'files', rpName)
+                    pfile = writeJSON(rpDoc, fpIn)
+                    plcyNames.append(rpName)
+                    rPolicy = {
+                        "name": rpName,
+                        "state": "present",
+                        "type": "policy",
+                        "policy_document": "{{ role_path }}/files/%s" % pfile
+                    }
+                    role_policies.append(rPolicy)
+                roleIn.update({"action_policy_labels": plcyNames})
+                role_list.append(roleIn)
+                # CREATE POLICIES
+
+            defaultVar[targetLabel].update({"policies": role_policies})
+            defaultVar[targetLabel].update({"roles": role_list})
+            defaultVar[targetLabel].update({"codebuild": [tobj_copy]})
 
             option = "main_%s" % account['all']
             mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
