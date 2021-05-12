@@ -11,6 +11,7 @@ from microMolder import LambdaMolder
 from microFront import CloudFrontMolder
 from microGateway import ApiGatewayMolder
 from microDynamo import DynamoMolder
+from microCode import CodeMolder
 from microUtils import loadConfig, roleCleaner, config_updateRestricted
 from MMAnsibleDeployAll import deployStart
 # TESTERS...
@@ -72,6 +73,10 @@ class TemporalDeployer():
         elif type_in == "-DY":
             dy = DynamoMolder("ansible")
             acctID, target, acctTitle, ready = dy.define(
+                svc_in, aconnect, origin, global_accts, sendto)
+        elif type_in == "-CB":
+            cb = CodeMolder("ansible")
+            acctID, target, acctTitle, ready = cb.define(
                 svc_in, aconnect, origin, global_accts, sendto)
         return acctID, target, acctTitle, ready
 
