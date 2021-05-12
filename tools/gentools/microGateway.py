@@ -513,7 +513,7 @@ class ApiGatewayMolder():
         final = baseList + rlist
         return final
 
-    def getALL_http_apis(self, client, position=None):
+    def getALL_v2_apis(self, client, position=None):
         gw = self.api_http()
         return gw.getALL_http_apis(client)
         
@@ -526,7 +526,7 @@ class ApiGatewayMolder():
         # client = boto3.client('apigateway')
         # apis=client.get_rest_apis()
         apis = self.getAll_rest_apis(client)
-        apis = apis + self.getALL_http_apis(client2)
+        apis = apis + self.getALL_v2_apis(client2)
         integratedAPIs = []
         stages = {}
         models = {}
@@ -560,9 +560,9 @@ class ApiGatewayMolder():
             if 'ProtocolType' in api:
                 protocol = api['ProtocolType']
             print(protocol)
-            if protocol == "HTTP":
+            if protocol == "HTTP" or protocol == "WEBSOCKET":  # 'ProtocolType': 'WEBSOCKET'|'HTTP',
                 print("********* WARNING  !!!!!!!")
-                print("[W] HTTP fix needed... continue")
+                print("[W] HTTP/WSocket testing needed... continue")
                 continue
             # resources = client.get_resources( restApiId=id,limit=500)
             resources = self.getAllResources(client, id)
@@ -639,7 +639,7 @@ class ApiGatewayMolder():
                         if 'options' not in function.lower():
                             continue
                     integratedType = None
-                    if not 'methodIntegration' in method:
+                    if 'methodIntegration' not in method:
                         continue
                     methodIntegration = method['methodIntegration']
                     logger.debug(f'Method: {method}')
