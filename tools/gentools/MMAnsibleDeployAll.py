@@ -39,76 +39,117 @@ import subprocess
 from subprocess import check_output
 from subprocess import Popen, PIPE
 
+logger = logging.getLogger(__name__)
 
+local_dev = True
+try:
+    os.environ['bucket']
+    import ansible.inventory
+    import ansible.playbook
+    # import ansible.runner
+    import ansible.constants
+    from ansible import utils
+    # from ansible import callbacks
+    local_dev = False
+except Exception:
+    logger.info('RUNNING AS LOCAL DEPLOYMENT')
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # directory='/Users/bgarner/CR/Ansible_Deployer/ansible'
-directory = os.path.join( '../../ansible')
-logger = logging.getLogger(__name__)
+directory = os.path.join('../../ansible')
 
-def ansibleResetDefinition(role, target):
-    rolePath = "%s/roles/%s/defaults" % (directory, role)
+
+def ansibleResetDefinition(role, target, static_path=None):
+    final_path = directory
+    if static_path:
+        final_path = f"{static_path}/ansible" if 'ansible' not in static_path else static_path
+    rolePath = "%s/roles/%s/defaults" % (final_path, role)
     main = "%s/main.yaml" % rolePath
-    os.remove(main)
+    logger.debug(f'Main file path: {main}')
+    os.remove(main)  # only removing old destination
     copyfile("%s/main_%s.yaml" % (rolePath, target), main)
-    return directory
+    return final_path
 
 
-def ansibleInvoke(account, config, role):
-    roleFile = '%s.yaml' % role
+def ansibleDeleteCache(role, baseDir):
+    rolePath = "%s/ansible/%s" % (baseDir, role)
+    if os.path.exists(rolePath):
+        print("[W] removing directory %s" % (rolePath))
+        shutil.rmtree(rolePath)
+
+
+def run_playbook(**kwargs):
+    stats = callbacks.AggregateStats()
+    playbook_cb = callbacks.PlaybookCallbacks(verbose=utils.VERBOSITY)
+    runner_cb = callbacks.PlaybookRunnerCallbacks(stats, verbose=utils.VERBOSITY)
+
+    # use /tmp instead of $HOME
+    if 'bucket' in os.environ:
+        ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
+    else:
+        ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
+
+    out = ansible.playbook.PlayBook(
+        callbacks=playbook_cb,
+        runner_callbacks=runner_cb,
+        stats=stats,
+        **kwargs
+    ).run()
+
+    return out
+
+
+def ansibleInvoke(account, config, role, static_path=None):
+    roleFile = '%s.yaml' % (role)
+    # roleFile = '%s_%s.yaml' % (account, role)
     target = config['all']
-    newPath = ansibleResetDefinition(role, target)
+    newPath = ansibleResetDefinition(role, target, static_path)
     prevPath = dir_path
-    os.chdir(newPath)
-    # print("test ansible path")
-    # dirpath = os.getcwd()
-    # print(dirpath)
-    # print("test move back to ORIGINAL path")
-    # os.chdir(prevPath)
-    # dirpath = os.getcwd()
-    # print(dirpath)
-    # return
-
     logger.info(f'Definition role file: {roleFile}')
-    print("\n    ----- STARTING --------[%s][%s]" % (account, target))
-    # quotedRole = '\"%s\"' % (roleFile)
-    quotedRole = '"%s"' % (roleFile)
-    # quotedRole = "'%s'" % (roleFile)
-    # quotedRole = r"\'%s\'" % (roleFile)
-    # quotedRole = u'\"%s\"' % (roleFile)
-    args = ['ansible-playbook', '-i', 'windows-servers', quotedRole, '-vvvv']
-    msg = ""
-    commandIn = " ".join(args)
-    try:
-        print('        ', commandIn)
-        rawOut = check_output(commandIn, stderr=PIPE, shell=True).decode()
-        # rawOut = check_output(args, stderr=PIPE).decode()
-        # rawOut = check_output(args, stderr=PIPE, shell=True).decode()
-        if isinstance(rawOut, str):
-            output = rawOut
-        else:
-            output = rawOut.decode("utf-8")
-        msg = output
-    except Exception as e:
-        msg = "[E] error occured target:%s  file:%s error:%s" % (target, roleFile, e)
-        logger.error(msg)
-    # process = Popen(args, stdout=PIPE, stderr=PIPE)#, timeout=timeout)
-    # stdout, stderr = process.communicate()  #will wait without deadlocking
-    #print (stdout)
-   # print (stderr)
-    print("    ----- COMPLETED --------[%s][%s]" % (account, target))
+    print(f"\n    [DEPLOY] {account}::{target}")
+    if not local_dev:
 
-    os.chdir(prevPath)
+        ansibleDeleteCache(role, "/tmp/tools/gentools")
+        rawOut = run_playbook(
+            playbook=roleFile,
+            inventory=ansible.inventory.Inventory(['localhost'])
+        )
+    else:
+        os.chdir(newPath)
+        quotedRole = '"%s"' % (roleFile)
+        args = ['ansible-playbook', '-i', 'windows-servers', quotedRole, '-vvvv']
+        msg = ""
+        commandIn = " ".join(args)
+        try:
+            print('        ', commandIn)
+            rawOut = check_output(commandIn, stderr=PIPE, shell=True).decode()
+            # rawOut = check_output(args, stderr=PIPE).decode()
+            # rawOut = check_output(args, stderr=PIPE, shell=True).decode()
+            if isinstance(rawOut, str):
+                output = rawOut
+            else:
+                output = rawOut.decode("utf-8")
+            msg = output
+        except Exception as e:
+            msg = "[E] error occured target:%s  file:%s error:%s" % (target, roleFile, e)
+            logger.error(msg)
+        # process = Popen(args, stdout=PIPE, stderr=PIPE)#, timeout=timeout)
+        # stdout, stderr = process.communicate()  #will wait without deadlocking
+        #print (stdout)
+        os.chdir(prevPath)
+       # print (stderr)
+    print(f"    [COMPLETE] {account}::{target}")
+
     return account, target, msg
 
 
-def deployStart(accounts, targets, role, HardStop=False):
+def deployStart(accounts, targets, role, static_path=None, HardStop=False):
     outputs = {}
     for target in targets:
         for k, v in accounts.items():
             if target in v['all']:
-                account, target, result = ansibleInvoke(k, v, role)
+                account, target, result = ansibleInvoke(k, v, role, static_path)
                 outputs.update({account: {"name": target, "value": result}})
                 if HardStop:
                     if '[E]' in result:

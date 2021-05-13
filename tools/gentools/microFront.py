@@ -43,9 +43,13 @@ class CloudFrontMolder():
 
     temp = None
 
-    def __init__(self, directory):
+    def __init__(self, directory, root=None):
         global dir_path
-        temp = "%s/%s" % (dir_path, directory)
+        self.directory = directory
+        if root:
+            temp = "%s/%s" % (root, directory)
+        else:
+            temp = "%s/%s" % (dir_path, directory)
         self.temp = temp
         if not os.path.exists(temp):
             os.makedirs(temp)
@@ -103,8 +107,9 @@ class CloudFrontMolder():
         cfrontM = self.behavior_describe(target, aconnect)
         acctTitle = None
 
-        taskMain, rootFolder, targetLabel = ansibleSetup(
-            self.temp, target, True)
+        target_file = '%s_%s' % (acctID, target)
+        # taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target, True)
+        taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target_file, True)
         #############################################
         #############################################
         ######## write YAML to file in tasks  #######
