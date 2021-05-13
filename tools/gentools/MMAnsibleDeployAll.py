@@ -39,6 +39,8 @@ import subprocess
 from subprocess import check_output
 from subprocess import Popen, PIPE
 
+logger = logging.getLogger(__name__)
+
 local_dev = True
 try:
     os.environ['bucket']
@@ -50,13 +52,12 @@ try:
     # from ansible import callbacks
     local_dev = False
 except Exception:
-    print("[W] LOCAL DEPLOYMENT")
+    logger.info('RUNNING AS LOCAL DEPLOYMENT')
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # directory='/Users/bgarner/CR/Ansible_Deployer/ansible'
 directory = os.path.join('../../ansible')
-logger = logging.getLogger(__name__)
 
 
 def ansibleResetDefinition(role, target, static_path=None):
@@ -65,8 +66,7 @@ def ansibleResetDefinition(role, target, static_path=None):
         final_path = f"{static_path}/ansible" if 'ansible' not in static_path else static_path
     rolePath = "%s/roles/%s/defaults" % (final_path, role)
     main = "%s/main.yaml" % rolePath
-    print("******___***_*_*_*_*_*_*")
-    print(main)
+    logger.debug(f'Main file path: {main}')
     os.remove(main)  # only removing old destination
     copyfile("%s/main_%s.yaml" % (rolePath, target), main)
     return final_path
@@ -107,7 +107,7 @@ def ansibleInvoke(account, config, role, static_path=None):
     newPath = ansibleResetDefinition(role, target, static_path)
     prevPath = dir_path
     logger.info(f'Definition role file: {roleFile}')
-    print("\n    ----- STARTING --------[%s][%s]" % (account, target))
+    print(f"\n    [DEPLOY] {account}::{target}")
     if not local_dev:
 
         ansibleDeleteCache(role, "/tmp/tools/gentools")
@@ -139,7 +139,7 @@ def ansibleInvoke(account, config, role, static_path=None):
         #print (stdout)
         os.chdir(prevPath)
        # print (stderr)
-    print("    ----- COMPLETED --------[%s][%s]" % (account, target))
+    print(f"    [COMPLETE] {account}::{target}")
 
     return account, target, msg
 

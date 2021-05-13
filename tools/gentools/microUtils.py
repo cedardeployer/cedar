@@ -164,7 +164,7 @@ def describe_policy(arn, name, aconnect):
     if 'Description' in polMeta:
         description = polMeta['Description']
     path = polMeta['Path']
-    print(f'    Policy: {name} --> {path}')
+    print(f'    [ENSURE] policy exists: {name}')
     return {'PolicyName': name,
             'Path': path,
             'PolicyDocument': doc,
@@ -232,7 +232,6 @@ def s3_put_stream(bucket, targetKey, some_binary_data, resource=None):
 def s3_put(bucket, targetKey, localfile, resource=None):
     if resource is None:
         resource = boto3.resource('s3')
-    print(" S3 --> @%s/%s" % (bucket, targetKey))
     if targetKey[0] == "/":
         targetKey = targetKey[1:]
     try:
@@ -255,7 +254,6 @@ def s3_put(bucket, targetKey, localfile, resource=None):
 def s3_get_stream(bucket, targetKey, encoding='utf-8', resource=None):
     if resource is None:
         resource = boto3.resource('s3')
-    # print(targetKey)
     obj = resource.Object(bucket, targetKey)
     if encoding is None:
         return obj.get()['Body'].read()
@@ -267,7 +265,7 @@ def file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS):
         typeObj = SVC_MAP[akey]
         for key, value in SVC_MAP[acctPlus].items():
             if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
-                print("[W] Dangerous replace found [%s]...skipping %s for %s" % (key, value, typeObj[key]))
+                logger.warning(f'Dangerous replace found: {key} - skipping {value} for {typeObj[key]}')
                 continue
             account_replace(yaml_main, str(value), str(typeObj[key]))
 
@@ -519,7 +517,7 @@ def config_updateRestricted(path, config, restrict_override=None):
         path = "%s/%s" % (parts[0], restrict_override)
     else:
         path = "%s/RESTRICTED.yaml" % (parts[0])
-    print(path)
+    logger.info(f'Loading config from: {path}')
     if 'bucket' in os.environ:
         secrets = loadYamlStream(os.environ['bucket'], path)['services']['eID']
     else:

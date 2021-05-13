@@ -71,7 +71,7 @@ class LambdaMolder():
         lambda_describe(target)
 
     def layer_describe(self, layers, aconnect):
-        print("    * layers should be referenced directly from same source NOT rebuilt every time *")
+        logger.warning("layers should be referenced directly from same source NOT rebuilt every time")
         if not layers:
             return []
         return [lyr['Arn'] for lyr in layers]
@@ -90,8 +90,7 @@ class LambdaMolder():
             zipName = "/tmp/%s_%s" % (acctID, zipName)
         else:
             zipName = "%s/%s_%s" % (dir_path, acctID, zipName)
-        print(zipName)
-        print("*^*^*^*^*^&*")
+        logger.info(f'Zipping to: {zipName}')
 
         #code.retrieve(cpath, zipName)
         urllib.request.urlretrieve(cpath, zipName)
@@ -187,7 +186,6 @@ class LambdaMolder():
         events = None
         buckets = None
 
-        print(types)
         if 'cloudwatch' in types:
             events = self.describe_cloudevents(target, lambdaM.farn, aconnect)
         if 's3' in types:
@@ -592,8 +590,7 @@ class LambdaMolder():
         events = []
         client = aconnect.__get_client__('events')
         #client = boto3.client('events')
-        print("------CLOUD EVENT--------ok---------")
-        print(functionArn)
+        print(f'    [DEFINE] {functionArn}')
         rnames = client.list_rule_names_by_target(
             TargetArn=functionArn)['RuleNames']
         for name in rnames:

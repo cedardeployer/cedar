@@ -16,6 +16,8 @@ import os
 import json
 # import shutil
 # import boto3
+import sys
+
 from botocore.exceptions import ClientError
 # import sys
 from shutil import copyfile
@@ -534,9 +536,7 @@ class ApiGatewayMolder():
         addedResource = {}
         possibleOptions = {}
 
-        print("\n  ** ** ******************************** ****")
-        print(f"     API GATEWAY - {targetAPI} - START")
-        print("  **  ******************************* ****")
+        print(f"    [DEFINE] API GATEWAY - {targetAPI}")
         logger.debug(f'APIs: {apis}')
         # print(targetAPI)
 
@@ -559,7 +559,7 @@ class ApiGatewayMolder():
             protocol = "REST"
             if 'ProtocolType' in api:
                 protocol = api['ProtocolType']
-            print(protocol)
+            #print(protocol)
             if protocol == "HTTP" or protocol == "WEBSOCKET":  # 'ProtocolType': 'WEBSOCKET'|'HTTP',
                 print("********* WARNING  !!!!!!!")
                 print("[W] HTTP/WSocket testing needed... continue")
@@ -1138,8 +1138,8 @@ class ApiGatewayMolder():
             apis, stages, models, auths = self.describe_gateway(
                 targetString, method, aconnect, resourceRole, targetAPI)
         if apis is None:
-            msg = "[E] no matching apis:'%s' found for:'%s'" % (target, targetAPI)
-            raise Exception(msg)
+            logger.error(f'No matching apis found! {target} in {targetAPI}')
+            sys.exit('[E] Stopped')
 
         print(f'    Total API endpoints: {len(apis)}')
 
