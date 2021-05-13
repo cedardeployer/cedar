@@ -132,7 +132,7 @@ def describe_role(name, aconnect, acct, apiTRigger=False):
     givenPolicies = aplcy['AttachedPolicies']
     if apiTRigger:
         logger.info(f'Using API trigger policy: {name}')
-        logger.info(f'Policies...: {givenPolicies}')
+        logger.debug(f'Policies...: {givenPolicies}')
 
         pname = name
         p_arn = "arn:aws:iam::%s:policy/%s" % (acct, pname)
