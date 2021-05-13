@@ -85,7 +85,8 @@ class CodeMolder():
                 "resources": False
             }
         roles, resourceRole = describe_role('codebuild-generic', aconnect, acctID, False)
-        taskMain, rootFolder, targetLabel = ansibleSetup( self.temp, target, True)
+        #taskMain, rootFolder, targetLabel = ansibleSetup( self.temp, target, True)
+        taskMain, rootFolder, targetLabel = ansibleSetup( self.temp, f'{acctID}_{target}', True)
         taskWithFiles = [
             {"import_tasks": "../aws/sts.yml", "vars": {"project": '{{ project }}'}},
             {"import_tasks": "../aws/IAM.yml", "vars": {"project": '{{ project }}'}},
@@ -201,7 +202,12 @@ class CodeMolder():
             option = "main_%s" % account['all']
             mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
             writeYaml(defaultVar, mainIn)
+            # Temporarily change tag with accountID so it's not overwritten
+            account_replace("%s.yaml" % mainIn, str(targetLabel), str('MUST_NOT_OVERWRITE'))
+            # Replace all other instances of that accountID
             account_replace("%s.yaml" % mainIn, str(acctID), str(simple_id))
+            # Put the tag back
+            account_replace("%s.yaml" % mainIn, str('MUST_NOT_OVERWRITE'), str(targetLabel))
             verify = True
             if suffix not in target and suffix:
                 account_inject_between("%s.yaml" % mainIn, ":function:", "\n", suffix, 'suffix', verify)
@@ -219,13 +225,13 @@ class CodeMolder():
             logger.info(f'{rootFolder} --> {sendto}')
             distutils.dir_util.copy_tree(rootFolder, sendto)
             ansibleRoot = sendto.split('roles/')[0]
-            targets = ['%s' % target]
+            targets = [f'{acctID}_{target}']
             rootYML = [{"name": "micro modler for lambda-%s" % target,
                         "hosts": "dev",
                         "remote_user": "root",
                         "roles": targets}]
             # ansibleRoot
-            writeYaml(rootYML, ansibleRoot, target)
+            writeYaml(rootYML, ansibleRoot, f'{acctID}_{target}')
         return acctID, target, acctTitle, True
 
 
