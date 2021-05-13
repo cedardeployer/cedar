@@ -3,7 +3,7 @@ import awsconnect
 from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup, serviceID
 #from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
 #from microFront import CloudFrontMolder
-from tools.gentools.microGateway import ApiGatewayMolder
+from microGateway import ApiGatewayMolder
 import logging
 import os
 import time
