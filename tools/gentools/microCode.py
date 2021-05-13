@@ -114,110 +114,33 @@ class CodeMolder():
 
     def behavior_describe(self, target, aconnect):
         client = aconnect.__get_client__('codebuild')
-        originID = None
-        triggers = []
+
+        # Get job definition
         try:
             dTable = client.batch_get_projects(names=[target])['projects'][0]
-            print("TTTTTTTT: ", dTable)
-            #dTable = client.describe_table(TableName=target)['Table']
         except client.exceptions.ResourceNotFoundException as ex:
             logger.error(ex)
             sys.exit('[E] Stopped')
 
-        indexes = []
-        cb_arn = dTable['arn']
+        # cb_arn = dTable['arn']
         cb_name = dTable['name']
         cb_source = dTable['source']
+        cb_source_version = dTable['sourceVersion']  # NOT SUPPORTED IN ANSIBLE
         cb_artifacts = dTable['artifacts']
-        cb_srole = dTable['serviceRole']
+        cb_service_role = dTable['serviceRole']
         cb_env = dTable['environment']
-        # TableId = dTable['TableId']
-        # TableStatus = dTable['TableStatus']
+        cb_timeout = dTable['timeoutInMinutes']
 
-        # keysIn = {}
-        # attDefined = {item['AttributeName']: self.dynamoSimpleTypes(
-        #     item['AttributeType']) for item in dTable['AttributeDefinitions']}
-        # for ks in dTable['KeySchema']:
-        #     namein = ks['AttributeName']
-        #     if 'HASH' in ks['KeyType']:
-        #         keysIn.update({"hash_key_name": namein,
-        #                        "hash_key_type": attDefined[namein]})
-        #     else:
-        #         keysIn.update({"range_key_name": namein,
-        #                        "range_key_type": attDefined[namein]})
-        #
-        # pr = dTable['ProvisionedThroughput']
-        # read_capacity = pr['ReadCapacityUnits']
-        # write_capacity = pr['WriteCapacityUnits']
-        #
-        # if 'LocalSecondaryIndexes' in dTable:
-        #     for kl in dTable['LocalSecondaryIndexes']:  # all , include, keys_only
-        #         lso = {"name": kl['IndexName'], "type": None,
-        #                "hash_key_name": None, "range_key_name": None}
-        #         for ks in kl['KeySchema']:
-        #             LSI_namein = ks['AttributeName']
-        #             if 'HASH' in ks['KeyType']:
-        #                 lso.update({"hash_key_name": LSI_namein,
-        #                             "hash_key_type": attDefined[LSI_namein]})
-        #             else:
-        #                 lso.update({"range_key_name": LSI_namein,
-        #                             "range_key_type": attDefined[LSI_namein]})
-        #         # print(dTable)
-        #         lpj = kl['Projection']
-        #         lpj_type = lpj['ProjectionType']
-        #         lso['type'] = lpj_type.lower()
-        #         if 'NonKeyAttributes' in lpj:
-        #             lso_keys = lpj['NonKeyAttributes']
-        #             if lso_keys:  # projections selected
-        #                 lso.update({"includes": lso_keys})
-        #         indexes.append(lso)
-        # if 'GlobalSecondaryIndexes' in dTable:
-        #     for gl in dTable['GlobalSecondaryIndexes']:
-        #         gso = {"name": gl['IndexName'], "type": None,
-        #                "hash_key_name": None, "range_key_name": None}
-        #         for ks in gl['KeySchema']:
-        #             namein = ks['AttributeName']
-        #             if 'HASH' in ks['KeyType']:
-        #                 gso.update(
-        #                     {"hash_key_name": ks['AttributeName'], "hash_key_type": attDefined[namein]})
-        #             else:
-        #                 gso.update(
-        #                     {"range_key_name": ks['AttributeName'], "range_key_type": attDefined[namein]})
-        #         lpj = gl['Projection']
-        #         lpj_type = lpj['ProjectionType']
-        #         gso['type'] = "global_%s" % (lpj_type.lower())
-        #         if 'NonKeyAttributes' in lpj:
-        #             gso_keys = lpj['NonKeyAttributes']
-        #             if gso_keys:  # projections selected
-        #                 gso.update({"includes": gso_keys})
-        #         indexes.append(gso)
-        # if 'StreamSpecification' in dTable:
-        #     streamSepcs = dTable['StreamSpecification']
-        #     LatestStreamArn = dTable['LatestStreamArn']
-        #     logger.debug('Retrieving trigger for table...')
-        #     triggers = self.scan_lambdaTriggers(target, aconnect, TableArn)
-        #
-        # else:
-        #     logger.debug(f'Table: {target} has no triggers')
-        # if 'SSEDescription' in dTable:
-        #     SSEDescription = dTable['SSEDescription']
         obj = {
             'name': cb_name,
             'source': cb_source,
+            'sourceVersion': cb_source_version,  # NOT SUPPORTED IN ANSIBLE
             'artifacts': cb_artifacts,
-            'serviceRole': cb_srole,
-            'environment': cb_env
+            'serviceRole': cb_service_role,
+            'environment': cb_env,
+            'timeoutInMinutes': cb_timeout
         }
-        # if 'StreamSpecification' in dTable:
-        #     obj.update({'streamspec': streamSepcs})
-        #
-        # if keysIn:
-        #     obj.update(keysIn)
-        # if indexes:
-        #     obj.update({"indexes": indexes})
         return obj
-
-
 
     def define(self, target, aconnect, accountOrigin, accounts=[], sendto=None):
         self.origin = accountOrigin
@@ -230,7 +153,6 @@ class CodeMolder():
         assumeRole = accountOrigin['assume_role']
         tableObj = self.behavior_describe(target, aconnect)
 
-        print("THISSSS ", tableObj)
         skipping = error_path = None
         if 'error_path' in accountOrigin:
             error_path = accountOrigin['error_path']
@@ -258,41 +180,6 @@ class CodeMolder():
         # Write
         logger.info('Writing main yaml in tasks folder...')
         writeYaml(taskMain, f'{rootFolder}/tasks/main')
-        # for akey, account in accounts.items():
-        #     default_region = "us-east-1"
-        #     if acctPlus == akey:
-        #         acctTitle = account['title']
-        #     prefix = suffix = ''
-        #     if 'suffix' in account or 'prefix' in account or 'contains' in account:
-        #         if 'suffix' in account:
-        #             suffix = account['suffix']
-        #     if 'region_deploy' in account:
-        #         default_region = account['region_deploy']
-        #     simple_id = akey
-        #     if "_" in simple_id:
-        #         simple_id = simple_id.split("_")[0]
-        #     eID = account['eID']
-        #     accDetail = {
-        #         "account_id": simple_id,
-        #         "env": account['title'],
-        #         "error_path": error_path,
-        #         "skipping": skipping,
-        #         "role_duration": 3600,
-        #         "region": default_region,
-        #         "eid": eID
-        #     }
-        #     if assumeRole:
-        #         accDetail.update({"cross_acct_role": account['role']})
-        #     defaultVar = {targetLabel: accDetail}
-        #
-        #     tobj_copy = copy.deepcopy(tableObj)
-        #     t_name = tableObj['name']
-        #     if suffix:
-        #         t_name = "%s%s" % (t_name, suffix)
-        #         tobj_copy.update({"name": t_name})
-        #
-        #     defaultVar[targetLabel].update({"codebuild": [tobj_copy]})
-        #
 
         for akey, account in accounts.items():
             default_region = 'us-east-1'
@@ -335,6 +222,7 @@ class CodeMolder():
             role_list = []
             role_policies = []
 
+            # Building main.yaml (not tasks)
             for role in roles:
                 rName = role['name']
                 rData = role['data']
@@ -376,6 +264,18 @@ class CodeMolder():
                 roleIn.update({"action_policy_labels": plcyNames})
                 role_list.append(roleIn)
                 # CREATE POLICIES
+
+            # DATA MANIPULATION
+            current_env_name = tableObj['name'].split('-')[-1]
+            target_env_name = account['all'].split('-')[-1].lower()
+            # If it ends in '-{ENV}' swap env names
+            if current_env_name != target_env_name:
+                tobj_copy['name'] = tobj_copy['name'].replace(current_env_name, target_env_name)
+            # Update env job variable
+            if 'environmentVariables' in tobj_copy['environment']:
+                for var in tobj_copy['environment']['environmentVariables']:
+                    if 'ENV' in var['name']:
+                        var['value'] = target_env_name.upper()
 
             defaultVar[targetLabel].update({"policies": role_policies})
             defaultVar[targetLabel].update({"roles": role_list})

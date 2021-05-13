@@ -12,6 +12,7 @@
     artifacts: "{{ item.artifacts }}"
     service_role: "{{ item.serviceRole }}"
     environment: "{{ item.environment }}"
+    timeout_in_minutes: "{{ item.timeoutInMinutes }}"
   register: task_output
   with_items: "{{ project.codebuild }}"
 
