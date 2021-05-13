@@ -1,29 +1,19 @@
 
 # import re
 # import ValueError
+import copy
+import distutils
 import logging
 import os
-import copy
 import sys
 from shutil import copyfile
-import distutils
-# from distutils import dir_util
-# import boto3
-# from botocore.exceptions import ClientError
-# import sys
 
-# from microUtils import writeYaml,loadServicesMap, loadConfig, ansibleSetup
-from microUtils import ansibleSetup, describe_role, writeJSON
-from microUtils import writeYaml, loadServicesMap
-# from microUtils import writeJSON
-# from microUtils import loadServicesMap
 from microUtils import account_replace, account_inject_between
-# from microUtils import describe_role
+from microUtils import ansibleSetup, describe_role, writeJSON, writeYaml
 
-# sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
-# dir_path = os.path.dirname(__file__)
 dir_path = os.path.dirname(os.path.realpath(__file__))
 logger = logging.getLogger(__name__)
+
 
 class CodeMolder():
     origin = None
@@ -37,81 +27,6 @@ class CodeMolder():
         else:
             logger.warning(f'Directory {temp} already exists--remove or rename.')
 
-    def get_Dynamolambdas(self, table, aconnect, nextMarker=None):
-        client = aconnect.__get_client__('lambda')
-        if nextMarker:
-            functions = client.list_functions(Marker=nextMarker)
-        else:
-            functions = client.list_functions()
-        all_Lambdas = functions['Functions']
-        if 'NextMarker' in functions:
-            nextMarker = functions['NextMarker']
-            lambdas = self.get_Dynamolambdas(table, aconnect, nextMarker)
-            all_Lambdas = lambdas + all_Lambdas
-
-        filtered = []
-        for ls in all_Lambdas:
-            lname = ls['FunctionName']
-            eventMaps = client.list_event_source_mappings(
-                FunctionName=lname)['EventSourceMappings']
-
-            for event in eventMaps:
-                source = event['EventSourceArn']
-                if 'dynamodb' in source and table in source:
-                    ls.update(event)
-                    filtered.append(ls)
-                    break
-        return filtered
-
-    def scan_lambdaTriggers(self, target, aconnect, arn):
-        lambdas = self.get_Dynamolambdas(target, aconnect)
-        triggers = []
-        for lb in lambdas:
-            print(lb)
-            # namein = lb['functionArn'].split('function:')[1]
-            namein = lb['FunctionName']
-            event_source = lb['EventSourceArn'].split('/')[:2]
-            event_source = "/".join(event_source)
-            obj = {"function_name": namein, "state": "present", "event_source": event_source,
-                   "function_arn": lb['FunctionArn'], "source_params": None}
-            state = True if lb['State'] == 'Enabled' else False
-            source_params = {"source_arn": event_source, "enabled": state,
-                             "starting_position": "LATEST", "batch_size": lb['BatchSize']}
-            additionalParams = ["MaximumBatchingWindowInSeconds", "ParallelizationFactor", "DestinationConfig",
-                                "MaximumRecordAgeInSeconds", "BisectBatchOnFunctionError", "MaximumRetryAttempts"]
-            for add in additionalParams:
-                if add in lb:
-                    source_params.update({add: lb[add]})
-            obj.update({"source_params": source_params})
-            obj['TableName'] = target
-            triggers.append(obj)
-        return triggers
-
-
-# - name: DynamoDB stream event mapping
-#   lambda_event:
-#     state: "{{ state | default('present') }}"
-#     event_source: stream
-#     function_name: "{{ function_name }}"
-#     alias: Dev
-#     source_params:
-#       source_arn: arn:aws:dynamodb:us-east-1:123456789012:table/tableName/stream/2016-03-19T19:51:37.457
-#       enabled: True
-#       batch_size: 100
-#       starting_position: TRIM_HORIZON
-#   with_items: "{{ project.dynamodbs }}"
-#   when: '{{ item.hash_key_name is not defined and item.read_capacity is defined and not (item.state=="absent")}}'
-
-
-    def dynamoSimpleTypes(self, type):
-        if "s" in type.lower():
-            return "STRING"
-        if "n" in type.lower():
-            return "NUMBER"
-        if "b" in type.lower():
-            return "BINARY"
-        return "STRING"
-
     def behavior_describe(self, target, aconnect):
         client = aconnect.__get_client__('codebuild')
 
@@ -122,23 +37,25 @@ class CodeMolder():
             logger.error(ex)
             sys.exit('[E] Stopped')
 
-        # cb_arn = dTable['arn']
-        cb_name = dTable['name']
-        cb_source = dTable['source']
-        cb_source_version = dTable['sourceVersion']  # NOT SUPPORTED IN ANSIBLE
-        cb_artifacts = dTable['artifacts']
-        cb_service_role = dTable['serviceRole']
-        cb_env = dTable['environment']
-        cb_timeout = dTable['timeoutInMinutes']
+        # TODO: Need custom template to support source_version aka branch of repo
+        # TODO: Flesh out the rest of this data for more advanced jobs
+        """
+        "msg": "Unsupported parameters for (aws_codebuild) module: 
+        source_version Supported parameters include: 
+        artifacts, aws_access_key, aws_ca_bundle, aws_config, aws_secret_key, cache, 
+        debug_botocore_endpoint_logs, description, ec2_url, encryption_key, environment, 
+        name, profile, region, security_token, service_role, source, state, tags, 
+        timeout_in_minutes, validate_certs, vpc_config"
+        """
 
         obj = {
-            'name': cb_name,
-            'source': cb_source,
-            'sourceVersion': cb_source_version,  # NOT SUPPORTED IN ANSIBLE
-            'artifacts': cb_artifacts,
-            'serviceRole': cb_service_role,
-            'environment': cb_env,
-            'timeoutInMinutes': cb_timeout
+            'name': dTable['name'],
+            'source': dTable['source'],
+            'sourceVersion': dTable['sourceVersion'],  # NOT SUPPORTED IN ANSIBLE
+            'artifacts': dTable['artifacts'],
+            'serviceRole': dTable['serviceRole'],
+            'environment': dTable['environment'],
+            'timeoutInMinutes': dTable['timeoutInMinutes']
         }
         return obj
 
@@ -313,5 +230,5 @@ class CodeMolder():
 
 
 if __name__ == "__main__":
-    cb = CodeMolder()
-    cb.define()
+    print('This is for defining CodeBuild jobs from options passed in by runner')
+    print('ex: python mainDeployer.py -CB dev "test" "api-tests-dev" ../ENVR.yaml null true')
