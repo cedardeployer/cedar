@@ -725,7 +725,7 @@ class ApiGatewayMolder():
                     if 'authorizationScopes' in method:
                         authScope = method['authorizationScopes']
                     add = False
-                    logger.info(f'{integration}[{function}], type: {resourceType}, name: {resourceNname}')
+                    logger.debug(f'{integration}[{function}], type: {resourceType}, name: {resourceNname}')
 
                     logger.debug(f'if ({resourceType} in {integration} and {resourceNname} in {integration}) or {resourceNname} == "*"')
                     logger.debug(f'{resourceString} == {pathString}')
@@ -1067,10 +1067,10 @@ class ApiGatewayMolder():
                 src = "%s/%s/%s" % (rootFolder, 'defaults', opt)
                 opt2 = "main.yaml"
                 dst = "%s/%s/%s" % (rootFolder, 'defaults', opt2)
-                print("----> src: %s" % (src))
-                print("----> dst: %s" % (dst))
+                logger.info("src: %s" % (src))
+                logger.info("dst: %s" % (dst))
                 copyfile(src, dst)
-                print(" -------==------===---- COPY ALL. START....")
+
                 logger.info(f'{rootFolder} --> {sendto}')
                 distutils.dir_util.copy_tree(rootFolder, sendto)
                 ansibleRoot = sendto.split('roles/')[0]
