@@ -436,6 +436,7 @@ class LambdaMolder():
 
             if events:  # NEW
                 brules = []
+                bridge_lambdarole = []
                 for rule in events:
                     description = "%s - Description by microMolder" % (
                         rule['Name'])
@@ -443,11 +444,17 @@ class LambdaMolder():
                         description = rule['Description']
                     brules.append({
                         "name": rule['Name'],
+                        "arn": rule['Arn'],
                         "schedule_expression": rule['ScheduleExpression'],
                         "description": description,
                         "state": rule['State'],
                         "targets": rule['targets']
                     })
+                    for ltgt in rule['targets']:
+                        if 'arn:aws:lambda:' in ltgt['arn']:
+                            bridge_lambdarole.append({"rule_arn": rule['Arn'], "lambda_name": ltgt['arn'].split(":function:")[1]})
+                if bridge_lambdarole:
+                    defaultVar[targetLabel].update({"bridge_lambdaroles": bridge_lambdarole})
                 defaultVar[targetLabel].update({"bridge_rules": brules})
 
             ########################################################
@@ -591,13 +598,24 @@ class LambdaMolder():
         client = aconnect.__get_client__('events')
         #client = boto3.client('events')
         print(f'    [DEFINE] {functionArn}')
-        rnames = client.list_rule_names_by_target(
-            TargetArn=functionArn)['RuleNames']
+        rnames = client.list_rule_names_by_target(TargetArn=functionArn)['RuleNames']
         for name in rnames:
             event = client.describe_rule(Name=name)
             eventTarget = client.list_targets_by_rule(Rule=name)
-            event.update(
-                {"targets": [{k.lower(): v for k, v in x.items()} for x in eventTarget['Targets']]})
+            all_targets = [{k.lower(): v for k, v in x.items()} for x in eventTarget['Targets']]
+            # event
+            event.update({"targets": all_targets})
+            # used_targets = []
+            # for ltgt in all_targets:
+            #     if "aws:lambda" in ltgt['arn']:
+            #         used_targets.append(ltgt)
+            # if used_targets:
+            #     event.update({"targets_lambda": used_targets})
+            # for used in used_targets:
+            #     all_targets.remove(used)
+            # if all_targets:
+            #     event.update({"targets": all_targets})
+            # self.describe_ruleLambda(event['targets'], aconnect)
             event['State'] = "present" if event['State'] == 'ENABLED' else 'disabled'
             del event['ResponseMetadata']
             events.append(event)

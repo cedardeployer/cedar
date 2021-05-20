@@ -41,4 +41,24 @@
     state: "{{ item.state }}"
     targets: "{{ item.targets }}"
   with_items: "{{ project.bridge_rules }}"
+  when: item.targets is defined
   register: bridge_rules
+
+
+
+- name: allow [EventBridgeEvent] to invoke the Lambda function
+  lambda_policy:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
+    function_name: "{{item.lambda_name}}"
+    state: present
+    statement_id: lambda-cloudwatch-event-rule
+    action: lambda:InvokeFunction
+    principal: events.amazonaws.com
+    source_arn: "{{ item.rule_arn }}"
+  with_items: "{{ project.bridge_lambdaroles }}"
+  when: project.bridge_lambdaroles is defined
+
+
