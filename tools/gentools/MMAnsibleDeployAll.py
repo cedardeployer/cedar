@@ -24,9 +24,9 @@ import urllib
 import distutils
 from distutils import dir_util
 
-import awsconnect
+from . import awsconnect
 
-from awsconnect import awsConnect
+from .awsconnect import awsConnect
 from shutil import copyfile
 
 #from context import FormatContext
@@ -34,7 +34,7 @@ from shutil import copyfile
 # pip install pyyaml
 import yaml
 import decimal
-from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
+from tools.gentools.microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
 import subprocess
 from subprocess import check_output
 from subprocess import Popen, PIPE

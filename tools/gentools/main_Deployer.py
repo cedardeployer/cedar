@@ -7,18 +7,18 @@ from time import sleep
 import time
 import random
 
-from microMolder import LambdaMolder
-from microFront import CloudFrontMolder
-from microGateway import ApiGatewayMolder
-from microDynamo import DynamoMolder
-from microCode import CodeMolder
-from microUtils import loadConfig, roleCleaner, config_updateRestricted
-from MMAnsibleDeployAll import deployStart
+from tools.gentools import awsconnect
+from tools.gentools.microMolder import LambdaMolder
+from tools.gentools.microFront import CloudFrontMolder
+from tools.gentools.microGateway import ApiGatewayMolder
+from tools.gentools.microDynamo import DynamoMolder
+from tools.gentools.microCode import CodeMolder
+from tools.gentools.microUtils import loadConfig, roleCleaner, config_updateRestricted
+from tools.gentools.MMAnsibleDeployAll import deployStart
 # TESTERS...
-from microGateway_test import ApiGatewayTester
+from tools.gentools.microGateway_test import ApiGatewayTester
 
-import awsconnect
-from awsconnect import awsConnect
+from tools.gentools.awsconnect import awsConnect
 
 try:
     import log_config
@@ -153,7 +153,7 @@ def print_help():
     """)
 
 
-if __name__ == "__main__":
+def main():
     # global directory
     directory = os.path.join('../../ansible')
     found = None
@@ -253,3 +253,20 @@ if __name__ == "__main__":
         logger.info(f'DEPLOYED in {time.time() - start_time} seconds')
 
     logger.info(f'FINISHED in {time.time() - start_time} seconds')
+
+
+def lambda_handler(event, context):
+    print('LAMBDAEVENT: ', event)
+    os.chdir('./tools/gentools')
+    parsed_args = sys.argv
+    parsed_args.append(event['service'])
+    parsed_args.append('dev')
+    parsed_args.append(event['env'])
+    parsed_args.append(event['component'])
+    parsed_args.append('ENVR.yaml')
+    parsed_args.append('null')
+    parsed_args.append('true')
+    main()
+
+if __name__ == "__main__":
+    main()

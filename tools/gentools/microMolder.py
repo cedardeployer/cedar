@@ -25,20 +25,20 @@ import urllib
 import distutils
 # from distutils import dir_util
 
-import awsconnect
+from tools.gentools import awsconnect
 
-from awsconnect import awsConnect
+from tools.gentools.awsconnect import awsConnect
 import traceback
 
 # from context import FormatContext
 # import pyaml
 # pip install pyyaml
-from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap
-from microUtils import loadConfig, ansibleSetup, roleCleaner
-from microUtils import describe_role, config_updateRestricted, file_replace_obj_found
-from microFront import CloudFrontMolder
-from microGateway import ApiGatewayMolder
-from microUtils import describe_regions, account_replace_inline
+from tools.gentools.microUtils import writeYaml, writeJSON, account_replace, loadServicesMap
+from tools.gentools.microUtils import loadConfig, ansibleSetup, roleCleaner
+from tools.gentools.microUtils import describe_role, config_updateRestricted, file_replace_obj_found
+from tools.gentools.microFront import CloudFrontMolder
+from tools.gentools.microGateway import ApiGatewayMolder
+from tools.gentools.microUtils import describe_regions, account_replace_inline
 # sudo ansible-playbook -i windows-servers SB-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)
 dir_path = os.path.dirname(os.path.realpath(__file__))

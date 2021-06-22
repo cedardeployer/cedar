@@ -32,10 +32,10 @@ import distutils
 
 # from awsconnect import awsConnect
 
-from microGatewayHttp import HttpGatewayMolder
-from microUtils import writeYaml, account_replace, loadServicesMap, ansibleSetup, loadConfig
-from microUtils import describe_role, roleCleaner, account_inject_between
-from microUtils import describe_regions, account_replace_inline, file_replace_obj_found
+from tools.gentools.microGatewayHttp import HttpGatewayMolder
+from tools.gentools.microUtils import writeYaml, account_replace, loadServicesMap, ansibleSetup, loadConfig
+from tools.gentools.microUtils import describe_role, roleCleaner, account_inject_between
+from tools.gentools.microUtils import describe_regions, account_replace_inline, file_replace_obj_found
 
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)

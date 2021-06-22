@@ -8,8 +8,8 @@ import os
 import sys
 from shutil import copyfile
 
-from microUtils import account_replace, account_inject_between
-from microUtils import ansibleSetup, describe_role, writeJSON, writeYaml
+from tools.gentools.microUtils import account_replace, account_inject_between
+from tools.gentools.microUtils import ansibleSetup, describe_role, writeJSON, writeYaml
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 logger = logging.getLogger(__name__)

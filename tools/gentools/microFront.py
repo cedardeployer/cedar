@@ -24,13 +24,13 @@ import urllib
 import distutils
 from distutils import dir_util
 
-import awsconnect
+from tools.gentools import awsconnect
 
-from awsconnect import awsConnect
+from tools.gentools.awsconnect import awsConnect
 
 
-from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
-from microUtils import config_updateRestricted
+from tools.gentools.microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
+from tools.gentools.microUtils import config_updateRestricted
 
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)

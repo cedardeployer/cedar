@@ -25,9 +25,9 @@ from pathlib import Path
 import distutils
 from distutils import dir_util
 
-import awsconnect
+from tools.gentools import awsconnect
 
-from awsconnect import awsConnect
+from tools.gentools.awsconnect import awsConnect
 
 #from context import FormatContext
 #import pyaml

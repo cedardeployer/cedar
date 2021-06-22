@@ -13,7 +13,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="tools.gentools.main_Deployer" />
-    <option name="PARAMETERS" value="-L dev &quot;test,stage&quot; &quot;SB-UserManage&quot; ../ENVR.yaml null true" />
+    <option name="PARAMETERS" value="-L dev &quot;test&quot; &quot;test_123&quot; ../ENVR.yaml null true" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="true" />

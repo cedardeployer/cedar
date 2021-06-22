@@ -13,11 +13,11 @@ import distutils
 # import sys
 
 # from microUtils import writeYaml,loadServicesMap, loadConfig, ansibleSetup
-from microUtils import ansibleSetup
-from microUtils import writeYaml, loadServicesMap
+from tools.gentools.microUtils import ansibleSetup
+from tools.gentools.microUtils import writeYaml, loadServicesMap
 # from microUtils import writeJSON
 # from microUtils import loadServicesMap
-from microUtils import account_replace, account_inject_between
+from tools.gentools.microUtils import account_replace, account_inject_between
 # from microUtils import describe_role
 
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv

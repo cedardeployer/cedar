@@ -25,11 +25,11 @@ import urllib
 import distutils
 from distutils import dir_util
 
-from microGateway import ApiGatewayMolder
+from tools.gentools.microGateway import ApiGatewayMolder
 
 
-from microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
-from microUtils import describe_role, roleCleaner, loadYaml
+from tools.gentools.microUtils import writeYaml, writeJSON, account_replace, loadServicesMap, loadConfig, ansibleSetup
+from tools.gentools.microUtils import describe_role, roleCleaner, loadYaml
 
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
 # dir_path = os.path.dirname(__file__)
