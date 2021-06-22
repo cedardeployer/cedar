@@ -396,6 +396,28 @@ def roleCleaner(roleString):
 
 
 def loadServicesMap(fullpath, domain='RDS', base_path=None):
+    # Start internal config load
+    # spliter = "/gentools"
+    # print(" LOADING ServiceMap: %s" % fullpath)
+    if not os.path.isfile(fullpath):
+        # try a directory behind
+        if not fullpath.startswith("/") or '/' not in fullpath:
+            #print(" LOADING 2 ServiceMap: %s .. behind:%s" % (fullpath, dir_path))
+            if not os.path.isfile(fullpath):
+                basename = os.path.basename(fullpath)
+                fullpath = "../%s" % (basename)
+    if os.path.isfile(fullpath):
+        logger.info(f'Loading {fullpath}')
+        with open(fullpath, newline='') as stream:
+            exp = yaml.load(stream, Loader=yaml.FullLoader)
+        if domain:
+            targets = exp['services'][domain]
+        else:
+            targets = exp['services']
+        return targets
+
+    # End internal config load
+
     if 'bucket' in os.environ:
         path = "%s/%s" % (base_path, fullpath)
         exp = loadYamlStream(os.environ['bucket'], path)
@@ -406,24 +428,6 @@ def loadServicesMap(fullpath, domain='RDS', base_path=None):
     else:
         targets = exp['services']
     return targets
-    # spliter = "/gentools"
-    # print(" LOADING ServiceMap: %s" % fullpath)
-    # if not os.path.isfile(fullpath):
-    #     # try a directory behind
-    #     if not fullpath.startswith("/") or '/' not in fullpath:
-    #         print(" LOADING 2 ServiceMap: %s .. behind:%s" % (fullpath, dir_path))
-    #         if not os.path.isfile(fullpath):
-    #             basename = os.path.basename(fullpath)
-    #             fullpath = "../%s" % (basename)
-    #             if not os.path.isfile(fullpath):
-    #                 raise Exception("[E] unable to find file %s" % (fullpath))
-    # with open(fullpath, newline='') as stream:
-    #     exp = yaml.load(stream, Loader=yaml.FullLoader)
-    # if domain:
-    #     targets = exp['services'][domain]
-    # else:
-    #     targets = exp['services']
-    # return targets
 
 
 def loadYamlStream(bucket, key, resource=None):
@@ -433,6 +437,24 @@ def loadYamlStream(bucket, key, resource=None):
 
 
 def loadYaml(fullpath):
+    # Start internal config load
+    # Look locally before loading from ~/.config/cedar
+    finalpath = fullpath
+    if not os.path.isfile(finalpath):
+        basename = os.path.basename(fullpath)
+        finalpath = "../%s" % (basename)
+    if not os.path.isfile(finalpath):
+        basename = os.path.basename(fullpath)
+        finalpath = "../../%s" % (basename)
+
+    if os.path.isfile(finalpath):
+        logger.info(f'Loading Yaml: {finalpath}')
+        with open(finalpath, newline='') as stream:
+            exp = yaml.load(stream, Loader=yaml.FullLoader)
+        return exp
+
+    # End internal config load
+
     config_parser = configparser.RawConfigParser()
     config_file_path = f'{user_home}/.config/cedar/config'
     config_parser.read(config_file_path)
@@ -454,15 +476,30 @@ def loadYaml(fullpath):
         logger.error(e)
         return None, None, None
     return exp
-    # print(" LOADING: %s" % fullpath)
-    # if not os.path.isfile(fullpath):
-    #     return None, None, None
-    # with open(fullpath, newline='') as stream:
-    #     exp = yaml.load(stream, Loader=yaml.FullLoader)
-    # return exp
 
 
 def loadConfig(fullpath, env):
+    # Start internal config load
+    finalpath = fullpath
+    if not os.path.isfile(fullpath):
+        basename = os.path.basename(fullpath)
+        finalpath = "../%s" % (basename)
+    if not os.path.isfile(finalpath):
+        basename = os.path.basename(fullpath)
+        finalpath = "../../%s" % (basename)
+    if os.path.isfile(finalpath):
+        logger.info(f'Config loading from {finalpath}')
+
+        # with open(finalpath, newline='') as stream:
+        with open(finalpath, 'r') as stream:
+            exp = yaml.load(stream, Loader=yaml.FullLoader)
+
+        env = 'target2Define' + env.capitalize()
+        target = exp[env]
+        global_accts = exp['accounts']
+        return target, global_accts
+
+    # End internal config load
 
     config_parser = configparser.RawConfigParser()
     config_file_path = f'{user_home}/.config/cedar/config'
@@ -487,23 +524,6 @@ def loadConfig(fullpath, env):
     target = exp[env]
     global_accts = exp['accounts']
     return target, global_accts
-    # print(" LOADING...CONFIG: %s" % fullpath)
-    # finalpath = fullpath
-    # if not os.path.isfile(fullpath):
-    #     basename = os.path.basename(fullpath)
-    #     finalpath = "../%s" % (basename)
-    #     if not os.path.isfile(finalpath):
-    #         return None, None
-    #
-    # print(" FINAL--> CONFIG: %s. env:%s" % (finalpath, env))
-    # # with open(finalpath, newline='') as stream:
-    # with open(finalpath, 'r') as stream:
-    #     exp = yaml.load(stream, Loader=yaml.FullLoader)
-    #
-    # env = 'target2Define' + env.capitalize()
-    # target = exp[env]
-    # global_accts = exp['accounts']
-    # return target, global_accts
 
 
 def config_updateRestricted(path, config, restrict_override=None):
@@ -517,7 +537,7 @@ def config_updateRestricted(path, config, restrict_override=None):
         path = "%s/%s" % (parts[0], restrict_override)
     else:
         path = "%s/RESTRICTED.yaml" % (parts[0])
-    logger.info(f'Loading config from: {path}')
+    logger.info(f'Looking for config...')
     if 'bucket' in os.environ:
         secrets = loadYamlStream(os.environ['bucket'], path)['services']['eID']
     else:
