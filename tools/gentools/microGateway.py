@@ -1093,7 +1093,7 @@ class ApiGatewayMolder():
             writeYaml(defaultVar, mainIn)
             account_replace(file_defaults, str(acctID), str(akey))
 
-        logger.info('Final YAML: {file_tasks}')
+        logger.info(f'Final YAML: {file_tasks}')
         # return file_tasks, file_defaults
         return acctID, target, acctTitle, True
 
