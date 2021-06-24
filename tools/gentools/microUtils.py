@@ -254,6 +254,9 @@ def s3_put(bucket, targetKey, localfile, resource=None):
 def s3_get_stream(bucket, targetKey, encoding='utf-8', resource=None):
     if resource is None:
         resource = boto3.resource('s3')
+    targetKey = targetKey[1:] if targetKey.startswith('/') else targetKey
+    if targetKey == 'data/lambdas/XX-CEDAR/../RESTRICTED.yaml':
+        targetKey = 'data/lambdas/RESTRICTED.yaml'
     obj = resource.Object(bucket, targetKey)
     if encoding is None:
         return obj.get()['Body'].read()
@@ -539,6 +542,7 @@ def config_updateRestricted(path, config, restrict_override=None):
         path = "%s/RESTRICTED.yaml" % (parts[0])
     logger.info(f'Looking for config...')
     if 'bucket' in os.environ:
+        path = path[1:] if path.startswith('/') else path
         secrets = loadYamlStream(os.environ['bucket'], path)['services']['eID']
     else:
         secrets = loadYaml(path)['services']['eID']
