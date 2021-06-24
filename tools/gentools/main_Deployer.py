@@ -257,9 +257,9 @@ def main():
 
 def lambda_handler(event, context):
     print('LAMBDAEVENT: ', event)
-    os.chdir('./tools/gentools')
+
     parsed_args = sys.argv
-    parsed_args.append(event['service'])
+    parsed_args.append(f"-{event['service']}")
     parsed_args.append('dev')
     parsed_args.append(event['env'])
     parsed_args.append(event['component'])
