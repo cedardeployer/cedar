@@ -15,12 +15,19 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 logger = logging.getLogger(__name__)
 
 
-class CodeMolder():
+class CodeMolder():   
     origin = None
+    finalDir_output = None
 
-    def __init__(self, directory):
+    temp = None
+
+    def __init__(self, directory, root=None):
         global dir_path
-        temp = "%s/%s" % (dir_path, directory)
+        self.directory = directory
+        if root:
+            temp = "%s/%s" % (root, directory)
+        else:
+            temp = "%s/%s" % (dir_path, directory)
         self.temp = temp
         if not os.path.exists(temp):
             os.makedirs(temp)
@@ -232,6 +239,8 @@ class CodeMolder():
                         "roles": targets}]
             # ansibleRoot
             writeYaml(rootYML, ansibleRoot, f'{acctID}_{target}')
+
+        self.finalDir_output = rootFolder
         return acctID, target, acctTitle, True
 
 

@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 class CloudFrontMolder():
     origin = None
+    finalDir_output = None
 
     temp = None
 
@@ -182,6 +183,7 @@ class CloudFrontMolder():
             logger.info('COPY START...')
             logger.info(f'{rootFolder} --> {sendto}')
             distutils.dir_util.copy_tree(rootFolder, sendto)
+        self.finalDir_output = rootFolder
         return acctID, target, acctTitle, True
 
     def cfront_create(self, target, aconnect, accountOrigin, accountTarget):
@@ -211,7 +213,7 @@ if __name__ == "__main__":
         sys.argv[1]
         found = sys.argv
         length = len(found)
-    except:
+    except Exception as e:
         found = "help"
         # ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
         # ansible-playbook -i windows-servers CR-WriteCheck.yml -vvvv

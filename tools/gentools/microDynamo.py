@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 class DynamoMolder():
     origin = None
+    finalDir_output = None
+
+    temp = None
 
     def __init__(self, directory, root=None):
         global dir_path
@@ -356,6 +359,8 @@ class DynamoMolder():
                         "roles": targets}]
             # ansibleRoot
             writeYaml(rootYML, ansibleRoot, target_file)
+
+        self.finalDir_output = rootFolder
         return acctID, target, acctTitle, True
 
 

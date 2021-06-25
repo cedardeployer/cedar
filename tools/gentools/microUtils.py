@@ -232,6 +232,7 @@ def s3_put_stream(bucket, targetKey, some_binary_data, resource=None):
 def s3_put(bucket, targetKey, localfile, resource=None):
     if resource is None:
         resource = boto3.resource('s3')
+    print(" S3 --> @%s/%s" % (bucket, targetKey))
     if targetKey[0] == "/":
         targetKey = targetKey[1:]
     try:

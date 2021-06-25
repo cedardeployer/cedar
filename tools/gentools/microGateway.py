@@ -45,12 +45,13 @@ logger = logging.getLogger(__name__)
 class ApiGatewayMolder():
     origin = None
     httpGateway = None
+    finalDir_output = None
     temp = None
 
     def Cooker(self, target):
         lambda_describe(target)
 
-        
+
     def __init__(self, directory, root=None):
         global dir_path
         self.directory = directory
@@ -62,7 +63,10 @@ class ApiGatewayMolder():
         if not os.path.exists(temp):
             os.makedirs(temp)
         else:
-            logger.warning(f'{temp} already exists--remove or rename.')
+            logger.warning(f'Directory {temp} already exists--remove or rename.')
+
+
+
 
     def api_http(self):
         if self.httpGateway:
@@ -1093,6 +1097,8 @@ class ApiGatewayMolder():
             writeYaml(defaultVar, mainIn)
             account_replace(file_defaults, str(acctID), str(akey))
 
+        self.finalDir_output = rootFolder
+
         logger.info(f'Final YAML: {file_tasks}')
         # return file_tasks, file_defaults
         return acctID, target, acctTitle, True
@@ -1315,6 +1321,8 @@ class ApiGatewayMolder():
             # CREATE default with all vars
             writeYaml(defaultVar, mainIn)
             account_replace(file_defaults, str(acctID), str(akey))
+
+        self.finalDir_output = rootFolder
 
         #print(file_tasks)
         # return file_tasks, file_defaults

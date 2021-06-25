@@ -49,6 +49,7 @@ class LambdaMolder():
     origin = None
     directory = None
     bucket_path = 'data/lambdas/XX-CEDAR'
+    finalDir_output = None
 
     temp = None
 
@@ -587,6 +588,8 @@ class LambdaMolder():
                     "roles": targets}]
         # ansibleRoot
         writeYaml(rootYML, ansibleRoot, target_file)
+
+        self.finalDir_output = rootFolder
         return acctID, target, acctTitle, True
 
     def describe_gateway(self, resourceNname, resourceType, aconnect, resourceRole=None, targetAPI=None):

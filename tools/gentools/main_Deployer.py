@@ -66,14 +66,17 @@ class TemporalDeployer():
         aconnect = awsConnect(accID, origin['eID'], origin['role_definer'], sts_client, region)
         aconnect.connect()
         results = None
+        output_dir = None
         if type_in == "-CF":
             cm = CloudFrontMolder("ansible", self.root)
             acctID, target, acctTitle, ready = cm.cfront_describe(
                 svc_in, aconnect, origin, global_accts, sendto)
+            output_dir = cm.finalDir_output
         elif type_in == "-L":
             lm = LambdaMolder("ansible", self.root)
             acctID, target, acctTitle, ready = lm.lambda_describe(
                 svc_in, aconnect, origin, global_accts, triggers, sendto, targetAPI, fullUpdate)
+            output_dir = lm.finalDir_output
         elif type_in == "-G":
             gm = ApiGatewayMolder("ansible", self.root)
             if targetAPI == svc_in:
@@ -82,15 +85,18 @@ class TemporalDeployer():
             else:
                 acctID, target, acctTitle, ready = gm.describe_GwResource(
                     svc_in, aconnect, origin, global_accts, triggers, sendto, targetAPI, fullUpdate, True)
+            output_dir = gm.finalDir_output
         elif type_in == "-DY":
             dy = DynamoMolder("ansible", self.root)
             acctID, target, acctTitle, ready = dy.define(
                 svc_in, aconnect, origin, global_accts, sendto)
+            output_dir = dy.finalDir_output
         elif type_in == "-CB":
             cb = CodeMolder("ansible")
             acctID, target, acctTitle, ready = cb.define(
                 svc_in, aconnect, origin, global_accts, sendto)
-        return acctID, target, acctTitle, ready
+            output_dir = cb.finalDir_output
+        return acctID, target, acctTitle, ready, output_dir
 
 
 # CHECK GATEWAY FOR OPTIONS. LOOK TO SEE IF OPTIONS ARE THERE!!!
@@ -225,7 +231,10 @@ def main(tmp=None, bucket=None, tartget_path=None):
     acctID = origin['account']
     if sendto:
         roleString = "%s_%s" % (acctID, roleString)
-        sendto = "%s/%s" % (sendto, roleString)
+        if tmp:
+            sendto = "%s/%s/%s" % (tmp, sendto, roleString)
+        else:
+            sendto = "%s/%s" % (sendto, roleString)
 
 
     triggers = origin['triggers']
@@ -236,8 +245,9 @@ def main(tmp=None, bucket=None, tartget_path=None):
     ready = None
 
     if not SkipDefinition:
-        acctID, target, acctTitle, ready = td.Define(type_in, role, origin, global_accts, sendto, config, triggers, targetAPI, fullUpdate)
+        acctID, target, acctTitle, ready, output_dir = td.Define(type_in, role, origin, global_accts, sendto, config, triggers, targetAPI, fullUpdate)
         logger.info(f'DEFINED in {time.time() - start_time} seconds')
+        logger.info(f'...FILES can be found in ...{output_dir}')
         # BELOW to skip deployment
         # exit()
 
