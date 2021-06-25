@@ -172,7 +172,7 @@ class CloudFrontMolder():
             writeYaml(defaultVar, mainIn)
             account_replace("%s.yaml" % mainIn, str(acctID), str(akey))
 
-        if not sendto is None:
+        if sendto:
             logger.info('Creating a main.yaml for ansible using dev')
             opt = "main_%s.yaml" % accountOrigin['all']
             src = "%s/%s/%s" % (rootFolder, 'defaults', opt)

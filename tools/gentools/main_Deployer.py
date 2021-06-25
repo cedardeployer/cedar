@@ -3,10 +3,11 @@ import logging
 import os
 import sys
 import re
+import datetime
 from time import sleep
 import time
 import random
-
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from tools.gentools import awsconnect
 from tools.gentools.microMolder import LambdaMolder
 from tools.gentools.microFront import CloudFrontMolder
@@ -36,9 +37,15 @@ logger = logging.getLogger('main_Deployer')
 
 class TemporalDeployer():
     root = None
-    def __init__(self, directory=None):
+    bucket = None
+    tartget_path = None
+
+    def __init__(self, directory=None, bucket=None, tartget_path=None):
         if directory:
             self.root = directory
+        if bucket:
+            self.bucket = bucket
+            self.tartget_path = target_path
 
 # CREATE DEFINITIONS
 
@@ -153,7 +160,7 @@ def print_help():
     """)
 
 
-def main():
+def main(tmp=None, bucket=None, tartget_path=None):
     # global directory
     directory = os.path.join('../../ansible')
     found = None
@@ -225,7 +232,7 @@ def main():
     if triggers is None:
         raise ValueError(
             "[E] config file [ %s ] did not load correctly.. PLEASE check / fix and try again" % (fullpath))
-    td = TemporalDeployer()
+    td = TemporalDeployer(tmp, bucket, tartget_path)
     ready = None
 
     if not SkipDefinition:
@@ -266,7 +273,11 @@ def lambda_handler(event, context):
     parsed_args.append('ENVR.yaml')
     parsed_args.append('null')
     parsed_args.append('true')
-    main()
+    bucket = "sb-portal-dev"
+    epoch = int(datetime.datetime.utcnow().timestamp())
+    target_path = "data/lambdas/CD-CEDAR/%s" % (epoch)
+    tmp = "/tmp"
+    main(tmp, bucket, tartget_path)
 
 if __name__ == "__main__":
     main()
