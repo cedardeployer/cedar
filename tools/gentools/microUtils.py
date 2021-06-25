@@ -445,10 +445,10 @@ def loadYaml(fullpath):
     finalpath = fullpath
     if not os.path.isfile(finalpath):
         basename = os.path.basename(fullpath)
-        finalpath = "../%s" % (basename)
+        finalpath = os.path.join(finalpath.rsplit('/', 2)[0], basename)
     if not os.path.isfile(finalpath):
         basename = os.path.basename(fullpath)
-        finalpath = "../../%s" % (basename)
+        finalpath = os.path.join(finalpath.rsplit('/', 2)[0], basename)
 
     if os.path.isfile(finalpath):
         logger.info(f'Loading Yaml: {finalpath}')
