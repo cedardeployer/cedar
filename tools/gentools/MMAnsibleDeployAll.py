@@ -104,6 +104,7 @@ def ansibleInvoke(account, config, role, static_path=None):
     roleFile = '%s.yaml' % (role)
     # roleFile = '%s_%s.yaml' % (account, role)
     target = config['all']
+    local_dev = True
     if not static_path:
         newPath = ansibleResetDefinition(role, target, static_path)
     else:
