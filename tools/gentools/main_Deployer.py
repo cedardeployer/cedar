@@ -38,14 +38,14 @@ logger = logging.getLogger('main_Deployer')
 class TemporalDeployer():
     root = None
     bucket = None
-    tartget_path = None
+    target_path = None
 
-    def __init__(self, directory=None, bucket=None, tartget_path=None):
+    def __init__(self, directory=None, bucket=None, target_path=None):
         if directory:
             self.root = directory
         if bucket:
             self.bucket = bucket
-            self.tartget_path = target_path
+            self.target_path = target_path
 
 # CREATE DEFINITIONS
 
@@ -92,7 +92,7 @@ class TemporalDeployer():
                 svc_in, aconnect, origin, global_accts, sendto)
             output_dir = dy.finalDir_output
         elif type_in == "-CB":
-            cb = CodeMolder("ansible")
+            cb = CodeMolder("ansible", self.root)
             acctID, target, acctTitle, ready = cb.define(
                 svc_in, aconnect, origin, global_accts, sendto)
             output_dir = cb.finalDir_output
@@ -100,7 +100,6 @@ class TemporalDeployer():
 
 
 # CHECK GATEWAY FOR OPTIONS. LOOK TO SEE IF OPTIONS ARE THERE!!!
-
 
     def TEST(self, type_in, svc_in, acct, acctName, global_accts, config, targetAPI):
         accID = acct
@@ -166,7 +165,7 @@ def print_help():
     """)
 
 
-def main(tmp=None, bucket=None, tartget_path=None):
+def main(tmp=None, bucket=None, target_path=None):
     # global directory
     directory = os.path.join('../../ansible')
     found = None
@@ -200,6 +199,10 @@ def main(tmp=None, bucket=None, tartget_path=None):
             sendto = str(sys.argv[6]).strip()  # 'some path'
         else:
             sendto = os.path.join('../../ansible/roles')
+            if tmp:
+                sendto = "%s/%s" % (tmp, "ansible/roles")
+                if not os.path.exists(sendto):
+                    os.makedirs(sendto)
             sys.argv.append(sys.argv[7])
             sys.argv[7] = sys.argv[6]
         roleString = roleCleaner(role)
@@ -229,19 +232,19 @@ def main(tmp=None, bucket=None, tartget_path=None):
     origin = config_updateRestricted(dir_path, origin)  # going to previous dir
     global_accts = config_updateRestricted(dir_path, global_accts)  # going to previous dir
     acctID = origin['account']
+    static_path = None
     if sendto:
         roleString = "%s_%s" % (acctID, roleString)
         if tmp:
             sendto = "%s/%s/%s" % (tmp, sendto, roleString)
+            static_path = "%s/%s" % (tmp, sendto)
         else:
             sendto = "%s/%s" % (sendto, roleString)
-
-
     triggers = origin['triggers']
     if triggers is None:
         raise ValueError(
             "[E] config file [ %s ] did not load correctly.. PLEASE check / fix and try again" % (fullpath))
-    td = TemporalDeployer(tmp, bucket, tartget_path)
+    td = TemporalDeployer(tmp, bucket, target_path)
     ready = None
 
     if not SkipDefinition:
@@ -257,7 +260,7 @@ def main(tmp=None, bucket=None, tartget_path=None):
         print("   ########### Ansible DEPLOYMENT START  ##################")
         print("   ########################################################")
         role = role
-        results = deployStart(global_accts, target_environments, roleString)
+        results = deployStart(global_accts, target_environments, roleString, static_path)
         for k, v in results.items():
             msg = "%s Account: %s, %s" % (v['name'], k, v['value'])
             # print(msg)
@@ -287,7 +290,8 @@ def lambda_handler(event, context):
     epoch = int(datetime.datetime.utcnow().timestamp())
     target_path = "data/lambdas/CD-CEDAR/%s" % (epoch)
     tmp = "/tmp"
-    main(tmp, bucket, tartget_path)
+    main(tmp, bucket, target_path)
+
 
 if __name__ == "__main__":
     main()

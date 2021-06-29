@@ -104,17 +104,23 @@ def ansibleInvoke(account, config, role, static_path=None):
     roleFile = '%s.yaml' % (role)
     # roleFile = '%s_%s.yaml' % (account, role)
     target = config['all']
-    newPath = ansibleResetDefinition(role, target, static_path)
+    if not static_path:
+        newPath = ansibleResetDefinition(role, target, static_path)
+    else:
+        local_dev = False
     prevPath = dir_path
     logger.info(f'Definition role file: {roleFile}')
     print(f"\n    [DEPLOY] {account}::{target}")
     if not local_dev:
-
-        ansibleDeleteCache(role, "/tmp/tools/gentools")
-        rawOut = run_playbook(
-            playbook=roleFile,
-            inventory=ansible.inventory.Inventory(['localhost'])
-        )
+        pass
+        #############
+        # add own ansible command here...
+        ###########
+        # ansibleDeleteCache(role, "/tmp/tools/gentools")
+        # rawOut = run_playbook(
+        #     playbook=roleFile,
+        #     inventory=ansible.inventory.Inventory(['localhost'])
+        # )
     else:
         os.chdir(newPath)
         quotedRole = '"%s"' % (roleFile)
