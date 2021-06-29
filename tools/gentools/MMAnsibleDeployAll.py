@@ -101,6 +101,7 @@ def run_playbook(**kwargs):
 
 
 def ansibleInvoke(account, config, role, static_path=None):
+    msg=''
     roleFile = '%s.yaml' % (role)
     # roleFile = '%s_%s.yaml' % (account, role)
     target = config['all']
