@@ -1,8 +1,8 @@
 # Local configs
-**/envr
-**/ENVR
-**/restricted
-**/RESTRICTED
+**/envr.*
+**/ENVR.*
+**/restricted.*
+**/RESTRICTED.*
 
 # Jetbrains
 .idea
