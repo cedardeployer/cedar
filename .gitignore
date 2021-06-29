@@ -1,3 +1,9 @@
+# Local configs
+envr.*
+ENVR.*
+restricted.*
+RESTRICTED.*
+
 # Jetbrains
 .idea
 .idea/
