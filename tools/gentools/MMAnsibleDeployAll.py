@@ -79,27 +79,6 @@ def ansibleDeleteCache(role, baseDir):
         shutil.rmtree(rolePath)
 
 
-def run_playbook(**kwargs):
-    stats = callbacks.AggregateStats()
-    playbook_cb = callbacks.PlaybookCallbacks(verbose=utils.VERBOSITY)
-    runner_cb = callbacks.PlaybookRunnerCallbacks(stats, verbose=utils.VERBOSITY)
-
-    # use /tmp instead of $HOME
-    if 'bucket' in os.environ:
-        ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
-    else:
-        ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
-
-    out = ansible.playbook.PlayBook(
-        callbacks=playbook_cb,
-        runner_callbacks=runner_cb,
-        stats=stats,
-        **kwargs
-    ).run()
-
-    return out
-
-
 def ansibleInvoke(account, config, role, static_path=None):
     msg=''
     roleFile = '%s.yaml' % (role)
@@ -114,15 +93,21 @@ def ansibleInvoke(account, config, role, static_path=None):
     logger.info(f'Definition role file: {roleFile}')
     print(f"\n    [DEPLOY] {account}::{target}")
     if not local_dev:
-        pass
-        #############
-        # add own ansible command here...
-        ###########
-        # ansibleDeleteCache(role, "/tmp/tools/gentools")
-        # rawOut = run_playbook(
-        #     playbook=roleFile,
-        #     inventory=ansible.inventory.Inventory(['localhost'])
-        # )
+        import ansible_runner
+        import ansible
+        if 'bucket' in os.environ:
+            ansible.constants.DEFAULT_REMOTE_TMP = '/tmp/ansible'
+        # TODO: Fix playbook path
+        print('Available path: ', dir_path)
+        r = ansible_runner.run(inventory='/tmp/ansible/windows-servers',
+                               private_data_dir='/tmp/ansible',
+                               playbook='/tmp/ansible/734407909462_test_123.yaml')
+        # print("{}: {}".format(r.status, r.rc))
+        # successful: 0
+        # for each_host_event in r.events:
+        #     print(each_host_event['event'])
+        # print("Final status:")
+        print(r.stats)
     else:
         os.chdir(newPath)
         quotedRole = '"%s"' % (roleFile)
