@@ -1,0 +1,12 @@
+---
+- name: S3 TEST HEADERS for existing object. {{ project_local.bucket | default("s3") }}
+  cd_s3_head:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    bucket: "{{ project_local.bucket }}"
+    key: "{{ project_local.target }}/{{ item }}"
+  with_items: "{{ project_local.files }}"
+  register: s3_head
+  when: 'project_local.action == "head"'
+
