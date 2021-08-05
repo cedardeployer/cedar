@@ -58,7 +58,7 @@ class CodeMolder():
         obj = {
             'name': dTable['name'],
             'source': dTable['source'],
-            'sourceVersion': dTable['sourceVersion'],  # NOT SUPPORTED IN ANSIBLE
+            #'sourceVersion': dTable['sourceVersion'],  # NOT SUPPORTED IN ANSIBLE
             'artifacts': dTable['artifacts'],
             'serviceRole': dTable['serviceRole'],
             'environment': dTable['environment'],
@@ -190,17 +190,18 @@ class CodeMolder():
                 role_list.append(roleIn)
                 # CREATE POLICIES
 
-            # DATA MANIPULATION
-            current_env_name = tableObj['name'].split('-')[-1]
-            target_env_name = account['all'].split('-')[-1].lower()
-            # If it ends in '-{ENV}' swap env names
-            if current_env_name != target_env_name:
-                tobj_copy['name'] = tobj_copy['name'].replace(current_env_name, target_env_name)
-            # Update env job variable
-            if 'environmentVariables' in tobj_copy['environment']:
-                for var in tobj_copy['environment']['environmentVariables']:
-                    if 'ENV' in var['name']:
-                        var['value'] = target_env_name.upper()
+            # # DATA MANIPULATION
+            if any(x in tableObj['name'] for x in ["-dev", "-test", "-stage", "-prod"]):
+                current_env_name = tableObj['name'].split('-')[-1]
+                target_env_name = account['all'].split('-')[-1].lower()
+                # If it ends in '-{ENV}' swap env names
+                if current_env_name != target_env_name:
+                    tobj_copy['name'] = tobj_copy['name'].replace(current_env_name, target_env_name)
+                # Update env job variable
+                if 'environmentVariables' in tobj_copy['environment']:
+                    for var in tobj_copy['environment']['environmentVariables']:
+                        if 'ENV' in var['name']:
+                            var['value'] = target_env_name.upper()
 
             defaultVar[targetLabel].update({"policies": role_policies})
             defaultVar[targetLabel].update({"roles": role_list})
