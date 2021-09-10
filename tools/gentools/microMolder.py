@@ -411,7 +411,8 @@ class LambdaMolder():
                 oLambda.update(
                     {"environment_variables": lambdaM.envars['Variables']})
             if lambdaM.vpcs:
-                networkObj = loadServicesMap(accountOrigin['services_map'], 'RDS')
+                NETWORK_MAP = loadServicesMap(accountOrigin['services_map'], 'RDS')
+                networkObj = NETWORK_MAP[akey]
                 if len(lambdaM.vpcs['SecurityGroupIds']) != 0:
                     #oLambda.update({"vpc_security_group_ids": lambdaM.vpcs['SecurityGroupIds']})
                     oLambda.update(
