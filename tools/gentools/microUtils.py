@@ -268,9 +268,11 @@ def file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS):
     for SVC_MAP in ALL_MAPS:
         typeObj = SVC_MAP[akey]
         for key, value in SVC_MAP[acctPlus].items():
+            # if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
+            #     logger.warning(f'Dangerous replace found: {key} - skipping {value} for {typeObj[key]}')
+            #     continue
             if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
-                logger.warning(f'Dangerous replace found: {key} - skipping {value} for {typeObj[key]}')
-                continue
+                logger.warning(f'Dangerous replace found: {key} - executing replace {value} for {typeObj[key]}')
             account_replace(yaml_main, str(value), str(typeObj[key]))
 
 

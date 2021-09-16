@@ -554,12 +554,12 @@ class LambdaMolder():
             account_replace(yaml_main, str(acctID), str(simple_id))
             account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
 
-            # Entire config replace will replace ALL occurances of commonname for env
-            # This may need to be refined to only look at say environment variables
-            if account['all'] != accountOrigin['all']:
-                source_env_1 = accountOrigin['all'].replace('sb-', '')
-                target_env_1 = account['all'].replace('sb-', '')
-                account_replace(yaml_main, source_env_1, target_env_1)
+            # # Entire config replace will replace ALL occurances of commonname for env
+            # # This may need to be refined to only look at say environment variables
+            # if account['all'] != accountOrigin['all']:
+            #     source_env_1 = accountOrigin['all'].replace('sb-', '')
+            #     target_env_1 = account['all'].replace('sb-', '')
+            #     account_replace(yaml_main, source_env_1, target_env_1)
 
             ALL_MAPS = [DOMAIN_MAP, BUCKET_MAP, TOKEN_MAP, NETWORK_MAP, COGNITO_MAP, SLACK_MAP, SIGNER_MAP, CFRONT_MAP]
             ########################################################
