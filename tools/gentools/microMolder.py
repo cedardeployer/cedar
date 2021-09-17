@@ -103,8 +103,25 @@ class LambdaMolder():
         if 'VpcConfig' in config:
             vpcs = config['VpcConfig']
         if "Layers" in config:
+            # Remove layers
+            curated_layer_list = []
+            for l in config['Layers']:
+                if "Sentry" in l["Arn"]:
+                    pass
+                else:
+                    curated_layer_list.append(l)
+            config['Layers'] = curated_layer_list
             layers = config["Layers"]
         if 'Environment' in config:
+            # Remove environment vars, always use sentry_environment
+            sev = config['Environment']['Variables']['SENTRY_ENVIRONMENT'] if 'SENTRY_ENVIRONMENT' in config['Environment']['Variables'] else 'dev'
+            curated_dict = {'SENTRY_ENVIRONMENT': sev}
+            for v, val in config['Environment']['Variables'].items():
+                if "SENTRY" in v:
+                    pass
+                else:
+                    curated_dict[v] = val
+            config['Environment']['Variables'] = curated_dict
             envars = config['Environment']
         if 'RevisionId' in config:
             alias = config['RevisionId']
