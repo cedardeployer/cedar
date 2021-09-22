@@ -113,6 +113,12 @@ class LambdaMolder():
             config['Layers'] = curated_layer_list
             layers = config["Layers"]
         if 'Environment' in config:
+            # Replace sentry handler with original
+            if 'sentry_sdk.integrations.init_serverless_sdk.sentry_lambda_handler' in config['Handler']:
+                if 'SENTRY_INITIAL_HANDLER' in config['Environment']['Variables']:
+                    config['Handler'] = config['Environment']['Variables']['SENTRY_INITIAL_HANDLER']
+                else:
+                    config['Handler'] = 'lambda_function.lambda_handler'
             # Remove environment vars, always use sentry_environment
             sev = config['Environment']['Variables']['SENTRY_ENVIRONMENT'] if 'SENTRY_ENVIRONMENT' in config['Environment']['Variables'] else 'dev'
             curated_dict = {'SENTRY_ENVIRONMENT': sev}
