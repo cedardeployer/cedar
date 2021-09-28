@@ -129,6 +129,10 @@ class LambdaMolder():
                     curated_dict[v] = val
             config['Environment']['Variables'] = curated_dict
             envars = config['Environment']
+        else:
+            config['Environment'] = {'Variables': {'SENTRY_ENVIRONMENT': 'dev'}}
+            envars = config['Environment']
+
         if 'RevisionId' in config:
             alias = config['RevisionId']
         return type('obj', (object,), {
@@ -274,7 +278,7 @@ class LambdaMolder():
                              "vars": {"project": '{{ project }}'}})
             taskMain.append({"import_tasks": "../aws/_agw.yml",
                              "vars": {"project": '{{ project }}'}})
-        if layers:
+        if True:  # Always push layers
             taskMain.append({"import_tasks": "../aws/lambda_update.yml",
                              "vars": {"project": '{{ project }}'}})
         if events:

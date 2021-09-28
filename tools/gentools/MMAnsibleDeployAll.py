@@ -24,6 +24,7 @@ import urllib
 import distutils
 from distutils import dir_util
 
+from tools.gentools.microMolder import LambdaMolder
 from . import awsconnect
 
 from .awsconnect import awsConnect
@@ -137,11 +138,54 @@ def ansibleInvoke(account, config, role, static_path=None):
     return account, target, msg
 
 
-def deployStart(accounts, targets, role, static_path=None, HardStop=False):
+def deployStart(target_name, accounts, targets, role, static_path=None, HardStop=False):
     outputs = {}
     for target in targets:
         for k, v in accounts.items():
             if target in v['all']:
+
+                # SENTRY: Put Sentry back if it was in target (Taken out at lambda describe)
+                try:
+                    sts_client = awsconnect.stsClient
+                    aconnect2 = awsConnect(k, v['eID'], v['role'], sts_client, 'us-east-1')
+                    aconnect2.connect()
+                    client = aconnect2.__get_client__('lambda')
+                    lmda = client.get_function(FunctionName=target_name)
+
+                    with open(f"../../ansible/roles/{role}/defaults/main_sb-{target}.yaml", "r") as stream:
+                        try:
+                            ydata = yaml.safe_load(stream)
+                        except yaml.YAMLError as exc:
+                            print(exc)
+                    if ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler'] != lmda['Configuration']['Handler']:
+                        ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler'] = lmda['Configuration']['Handler']
+                    if 'Environment' in lmda['Configuration']:
+                        if 'Variables' in lmda['Configuration']['Environment']:
+                            if 'SENTRY_ENVIRONMENT' in lmda['Configuration']['Environment']['Variables']:
+                                if 'SENTRY_ENVIRONMENT' in ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables']:
+                                    del ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables']['SENTRY_ENVIRONMENT']
+                            for nvar, nvarv in lmda['Configuration']['Environment']['Variables'].items():
+                                if 'SENTRY' in nvar:
+                                    ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables'][nvar] = nvarv
+                        # if lmda['Configuration']['Environment']['Variables']:
+                        #     ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables'].update(lmda['Configuration']['Environment']['Variables'])
+                    if 'Layers' in lmda['Configuration']:
+                        if lmda['Configuration']['Layers']:
+                            for lay in lmda['Configuration']['Layers']:
+                                if 'Sentry' in lay:
+                                    # if 'sentry_sdk.integrations.init_serverless_sdk.sentry_lambda_handler' in ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler']:
+                                    ydata[f'A{role}'.replace('-', '_')]['lambda_updates'][0]['layers'].extend(lmda['Configuration']['Layers'])
+                                    # Add layer to main
+
+                    with open(f"../../ansible/roles/{role}/defaults/main_sb-{target}.yaml", 'w', encoding='utf8') as outfile:
+                        outfile.write('---\n')
+                        yaml.dump(ydata, outfile, default_flow_style=False, allow_unicode=True)
+
+                except client.exceptions.ResourceNotFoundException:
+                    print("Does not yet exist in target env...")
+                    pass
+                # SENTRY: END
+
                 account, target, result = ansibleInvoke(k, v, role, static_path)
                 outputs.update({account: {"name": target, "value": result}})
                 if HardStop:

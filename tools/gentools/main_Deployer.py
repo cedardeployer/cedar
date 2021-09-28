@@ -260,7 +260,7 @@ def main(tmp=None, bucket=None, target_path=None):
         print("   ########### Ansible DEPLOYMENT START  ##################")
         print("   ########################################################")
         role = role
-        results = deployStart(global_accts, target_environments, roleString, static_path)
+        results = deployStart(target, global_accts, target_environments, roleString, static_path)
         for k, v in results.items():
             msg = "%s Account: %s, %s" % (v['name'], k, v['value'])
             # print(msg)
