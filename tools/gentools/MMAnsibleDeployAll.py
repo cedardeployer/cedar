@@ -152,7 +152,7 @@ def deployStart(target_name, accounts, targets, role, static_path=None, HardStop
                     client = aconnect2.__get_client__('lambda')
                     lmda = client.get_function(FunctionName=target_name)
 
-                    with open(f"../../ansible/roles/{role}/defaults/main_sb-{target}.yaml", "r") as stream:
+                    with open(f"../../ansible/roles/{role}/defaults/main_{v['all']}.yaml", "r") as stream:
                         try:
                             ydata = yaml.safe_load(stream)
                         except yaml.YAMLError as exc:
@@ -177,7 +177,7 @@ def deployStart(target_name, accounts, targets, role, static_path=None, HardStop
                                     ydata[f'A{role}'.replace('-', '_')]['lambda_updates'][0]['layers'].extend(lmda['Configuration']['Layers'])
                                     # Add layer to main
 
-                    with open(f"../../ansible/roles/{role}/defaults/main_sb-{target}.yaml", 'w', encoding='utf8') as outfile:
+                    with open(f"../../ansible/roles/{role}/defaults/main_{v['all']}.yaml", 'w', encoding='utf8') as outfile:
                         outfile.write('---\n')
                         yaml.dump(ydata, outfile, default_flow_style=False, allow_unicode=True)
 
