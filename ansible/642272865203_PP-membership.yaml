@@ -1,0 +1,6 @@
+---
+- hosts: dev
+  name: micro modler for lambda-PP-membership
+  remote_user: root
+  roles:
+  - 642272865203_PP-membership

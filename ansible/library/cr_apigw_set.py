@@ -374,15 +374,17 @@ def method_add(module, client, main_model, isTest=False):
         if main_model.authorizationType != 'NONE':
             authType = main_model.authorizationType
         if authType:
-            authIN = auth_present(client, module, main_model.authorizationName, main_model.restApiId)
-            putDict.update({"authorizerId": authIN['id']})
-            if authScopes != 'NONE' and authScopes:
-                if authScopes[0]:
-                    putDict.update({"authorizationScopes": authScopes})
+            try:
+                authIN = auth_present(client, module, main_model.authorizationName, main_model.restApiId)
+                putDict.update({"authorizerId": authIN['id']})
+                if authScopes != 'NONE' and authScopes:
+                    if authScopes[0]:
+                        putDict.update({"authorizationScopes": authScopes})
 
-                # putDict.update({"authorizationScopes": ['']})
-            # module.fail_json(msg="[T] method_add scope  >>-> {0} {1} ".format( authScopes, main_model.authScopes ) )
-
+                    # putDict.update({"authorizationScopes": ['']})
+                # module.fail_json(msg="[T] method_add scope  >>-> {0} {1} ".format( authScopes, main_model.authScopes ) )
+            except ClientError as e:
+                module.fail_json(msg="[E] Authorizor {0} is missing please deploy before others - {1}".format(main_model.authorizationName, e.response['Error']['Message']))
             # find ID for autho
         client.put_method(**putDict)
 

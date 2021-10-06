@@ -150,7 +150,8 @@ def cr_iam_policy(state, module, client, name=None, resource=None, actionPolicy=
     except ClientError as e:
         if "already exists" in e.response['Error']['Message']:
             # acct = client.get_user()['User']['Arn'].split(':')[4]
-            acct = client.list_roles(PathPrefix="/service-role/", MaxItems=1)['Roles'][0]['Arn'].split(':')[4]
+            # acct = client.list_roles(PathPrefix="/service-role/", MaxItems=1)['Roles'][0]['Arn'].split(':')[4]
+            acct = client.list_policies(MaxItems=1)['Policies'][0]['Arn'].split(':')[4]
             try:
                 client.create_policy_version(PolicyArn="arn:aws:iam::%s:policy/%s" % (acct, name), PolicyDocument=actionPolicy, SetAsDefault=True)
             except client.exceptions.LimitExceededException as e:
@@ -170,14 +171,16 @@ def cr_iam_policy(state, module, client, name=None, resource=None, actionPolicy=
 def cr_iam_attach_policy(module, client, name=None, resource=None, policyName=None, type_iam='role'):
     pName = name
     allPolicies = listPolicies(client)
+    # pc_names = []
     if 'role' in type_iam:
         policyARN = None  # LOOP to find policy name that matches
         for plcy in allPolicies:
-            if policyName == plcy['PolicyName']:
+            # pc_names.append(plcy['PolicyName'])
+            if policyName.lower() == plcy['PolicyName'].lower():
                 policyARN = plcy['Arn']
                 break
         if policyARN is None:
-            module.fail_json(msg=" [E] Given Policy Not found [cr_iam_attach_policy] check the name - {0}".format(policyName))
+            module.fail_json(msg=" [E] Given Policy Not found [cr_iam_attach_policy] check the name - {0} ".format(policyName))
         client.attach_role_policy(RoleName=pName, PolicyArn=policyARN)
 
 
