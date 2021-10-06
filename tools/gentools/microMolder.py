@@ -175,7 +175,8 @@ class LambdaMolder():
         SIGNER_MAP = loadServicesMap(accountOrigin['services_map'], 'signer', self.bucket_path)
         DOMAIN_MAP = loadServicesMap(accountOrigin['services_map'], 'domains', self.bucket_path)
         CFRONT_MAP = loadServicesMap(accountOrigin['services_map'], 'cloudfront', self.bucket_path)
-        REGIONS = describe_regions()
+        ec2_client = aconnect.__get_client__('ec2')
+        REGIONS = describe_regions(ec2_client)
 
         skipping = error_path = None
         if 'error_path' in accountOrigin:

@@ -62,6 +62,8 @@ class TemporalDeployer():
         sts_client = awsconnect.stsClient
         print(f'   ------------------------')
         print(f'    Account: {accID}')
+        print(f"    Account: {origin['eID']}'")
+        print(f"    Account: {origin['role_definer']}")
         print(f'   ------------------------')
         aconnect = awsConnect(accID, origin['eID'], origin['role_definer'], sts_client, region)
         aconnect.connect()

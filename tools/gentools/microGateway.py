@@ -884,7 +884,8 @@ class ApiGatewayMolder():
         NETWORK_MAP = loadServicesMap(accountOrigin['services_map'], 'RDS')
         COGNITO_MAP = loadServicesMap(accountOrigin['services_map'], 'cognito')
         BUCKET_MAP = loadServicesMap(accountOrigin['services_map'], 'S3')
-        REGIONS = describe_regions()
+        ec2_client = aconnect.__get_client__('ec2')
+        REGIONS = describe_regions(ec2_client)
 
         iamRole = accountOrigin['triggeredRole']
         logger.info(f'API-lambda trigger role: {iamRole}')
@@ -1123,7 +1124,8 @@ class ApiGatewayMolder():
         NETWORK_MAP = loadServicesMap(accountOrigin['services_map'], 'RDS')
         COGNITO_MAP = loadServicesMap(accountOrigin['services_map'], 'cognito')
         BUCKET_MAP = loadServicesMap(accountOrigin['services_map'], 'S3')
-        REGIONS = describe_regions()
+        ec2_client = aconnect.__get_client__('ec2')
+        REGIONS = describe_regions(ec2_client)
         # self.origin['account']
 
         iamRole = accountOrigin['triggeredRole']

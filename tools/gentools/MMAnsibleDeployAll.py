@@ -183,7 +183,7 @@ def deployStart(target_name, accounts, targets, role, static_path=None, HardStop
 
                 except client.exceptions.ResourceNotFoundException:
                     print("Does not yet exist in target env...")
-                    pass
+                    # pass
                 # SENTRY: END
 
                 account, target, result = ansibleInvoke(k, v, role, static_path)
