@@ -4,6 +4,13 @@
 **/restricted.*
 **/RESTRICTED.*
 
+# Generated files
+*.zip
+/ansible/roles/*/
+!/ansible/roles/aws/
+!/ansible/roles/azure/
+/ansible/*.yaml
+
 # Jetbrains
 .idea
 .idea/
