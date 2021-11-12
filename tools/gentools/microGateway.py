@@ -423,7 +423,7 @@ class ApiGatewayMolder():
                                             print("### client &*&*&*&****&&&&&")
                                             # raise
         if additionali > 0:
-            print("additional found ... rerun")
+            print("    Additions found... rerunning")
             self.relocRefsOnDependencies(array, basicNames)
         return array
 

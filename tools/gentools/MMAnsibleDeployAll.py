@@ -182,7 +182,7 @@ def deployStart(target_name, accounts, targets, role, static_path=None, HardStop
                         yaml.dump(ydata, outfile, default_flow_style=False, allow_unicode=True)
 
                 except client.exceptions.ResourceNotFoundException:
-                    print("Does not yet exist in target env...")
+                    print("    Does not yet exist in target env...")
                     # pass
                 # SENTRY: END
 
