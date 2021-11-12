@@ -387,7 +387,8 @@ class ApiGatewayMolder():
                 model = array[i]
                 IName = model['name']
                 if 'items' in sSchema:
-                    refsIn.append(os.path.basename(sSchema['items']['$ref']))
+                    if '$ref' in sSchema['items']:
+                        refsIn.append(os.path.basename(sSchema['items']['$ref']))
                 else:
                     props = sSchema['properties']
                     # print(props)
