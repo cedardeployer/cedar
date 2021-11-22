@@ -499,7 +499,7 @@ class LambdaMolder():
                     s3Trigger = {
                         'Id': bkt['config']['Id'],
                         # 'bucket': bkt['bucket'],
-                        'bucket': bucketObj['bucket'],
+                        'bucket': buckets[0]['bucket'],
                         'lambdaArn': bkt['config']['LambdaFunctionArn'],
                         'state': 'present',
                         # 'alias':bkt
