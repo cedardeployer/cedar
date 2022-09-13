@@ -358,19 +358,21 @@ class LambdaMolder():
                 trustIn = "%s/%s/%s" % (rootFolder, 'files', rNamePlcy)
                 # print ".... dude.....look up......"
                 rfile = writeJSON(rData['AssumeRolePolicyDocument'], trustIn)
-                #print (role)
+                # print (role)
                 # exit()
                 roleIn = {
                     "name": rName,
                     "trust_policy_filepath": "{{ role_path }}/files/%s" % rfile,
                     "type": "role",
                     "state": "present",
-                    "path": rData['Path'],
+                    "aws_path": rData['Path'],
                     "description": rDescribe
                 }
                 # polices are in seperate list!!!!!
                 plcies = role['policies']
                 plcyNames = []
+                print(plcies)
+                # raise
                 for rp in plcies:
                     rpName = rp['PolicyName']
                     rpDoc = rp['PolicyDocument']
@@ -382,6 +384,8 @@ class LambdaMolder():
                     rPolicy = {
                         "name": rpName,
                         "state": "present",
+                        "aws_path": rpPath,
+                        "description": rpDescription,
                         "type": "policy",
                         "policy_document": "{{ role_path }}/files/%s" % pfile
                     }

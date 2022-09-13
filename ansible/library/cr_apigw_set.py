@@ -396,7 +396,7 @@ def method_add(module, client, main_model, isTest=False):
             module.fail_json(msg="[E] 001 cr_method put_method failed - {0}".format(e.response['Error']['Message']))
     passthrough = False
     try:
-        intDict.update({"type": main_model.integration['type']})
+        intDict.update({"type": main_model.integration['type']})  # HTTP_PROXY
         intDict.update({"httpMethod": main_model.httpMethod})
         # module.fail_json(msg="[T] //////  put_integration  - {0}  {1}".format(main_model.integration['httpMethod'],main_model.integration['type']))
         if 'integrationHttpMethod' in main_model.integration:
@@ -405,6 +405,9 @@ def method_add(module, client, main_model, isTest=False):
             intDict.update({"integrationHttpMethod": main_model.integration['httpMethod']})
             if 'AWS_PROXY' in main_model.integration['type']:
                 passthrough = True
+        elif 'HTTP_PROXY' in main_model.integration['type']:
+            intDict.update({"integrationHttpMethod": main_model.integration['httpMethod']})
+            passthrough = True
         if 'uri' in main_model.integration:
             intDict.update({"uri": main_model.integration['uri']})
         if 'connectionType' in main_model.integration:
@@ -434,6 +437,11 @@ def method_add(module, client, main_model, isTest=False):
             intDict.update({"timeoutInMillis": main_model.integration['timeoutInMillis']})
         if main_model.credentials:
             intDict.update({"credentials": main_model.credentials})
+
+            # integration_http_method
+            # integrationHttpMethod
+        # module.fail_json(msg="[TT] method_add tessst - {0} with:{1}".format(main_model.integration['uri'], main_model.integration['type']))
+
         # module.fail_json(msg="[T] //////  timeoutInMillis  - {0}".format(main_model.integration['timeoutInMillis']))
         # module.fail_json(msg="[T] //////  timeoutInMillis  - {0}".format(intDict)  )
         # module.fail_json(msg="[T] //////  timeoutInMillis  - {0}".format(main_model.credentials)  )

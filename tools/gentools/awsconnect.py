@@ -1,5 +1,6 @@
 
 import boto3
+import botocore.session
 
 stsClient = None
 
@@ -13,9 +14,10 @@ class awsConnect:
 
     def __init__(self, account_id, eID, role, sts_client, region='us-east-1', multiaccounts=True, multiThread=False):
         """
-
+        
         :type session: boto3.Session
         """
+
         self._multiThread = multiThread
         self._useAccounts = multiaccounts
         self._credential = None
@@ -26,6 +28,7 @@ class awsConnect:
         self._role = role
         self._sts_client = sts_client
         self._session = None
+        self._botocore_session = None
         self._original = None
         #self._session = self.sessionDefault() if eID is None else self.sessionCreate()
         # print '...how are you',self._session
@@ -54,6 +57,7 @@ class awsConnect:
         self._session = boto3.Session(aws_access_key_id=cred['AccessKeyId'],
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
+        self._botocore_session = botocore.session.get_session()
         return self._session
 
     def sessionClose(self):

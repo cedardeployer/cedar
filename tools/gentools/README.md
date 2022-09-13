@@ -45,3 +45,20 @@ Trust for Role must look like (note both api and lambda included):
 ```
 ansible-playbook -i windows-servers CD-Admin-Users.yml -vvvv
 ```
+
+
+in clusters you can use to wait:
+
+```
+clusterLaunch=False
+while (clusterLaunch==False):
+  try:
+    eksCluster=eks.describe_cluster(name='wavelength_eks')
+    print(eksCluster["cluster"])
+    apiServer=eksCluster["cluster"]["endpoint"]
+    certificateAuthority=eksCluster["cluster"]["certificateAuthority"]["data"]
+    clusterLaunch=True
+  except:
+    print("Cluster creation not complete. Waiting another minute..")
+    time.sleep(60)
+```

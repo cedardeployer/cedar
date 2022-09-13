@@ -2,20 +2,22 @@ import logging
 
 import os
 import sys
-import re
-import datetime
-from time import sleep
+# import re
+# import datetime
+# from time import sleep
 import time
-import random
+# import random
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from tools.gentools import awsconnect
 from tools.gentools.microMolder import LambdaMolder
+from tools.gentools.microContainer import ContainerMolder
 from tools.gentools.microFront import CloudFrontMolder
 from tools.gentools.microGateway import ApiGatewayMolder
 from tools.gentools.microDynamo import DynamoMolder
 from tools.gentools.microCode import CodeMolder
-from tools.gentools.microUtils import loadConfig, roleCleaner, config_updateRestricted
+from tools.gentools.microUtils import loadConfig, roleCleaner, config_updateRestricted, loadYaml, writeTXT
 from tools.gentools.MMAnsibleDeployAll import deployStart
+from tools.gentools.py2hcl import py2hcl
 # TESTERS...
 from tools.gentools.microGateway_test import ApiGatewayTester
 
@@ -31,6 +33,7 @@ except Exception:
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # directory='/path/to/Ansible_Deployer/ansible'
 logger = logging.getLogger('main_Deployer')
+# logging.basicConfig(level=logging.INFO)
 
 # python Main_DEPLOYER.py -DY dev "test,stage,prod,tpp"  "xx_tablename" ENVR.yaml API_Name true
 
@@ -52,7 +55,7 @@ class TemporalDeployer():
     def Define(self, type_in, svc_in, origin, global_accts, sendto, config, triggers=None, targetAPI=None, fullUpdate=None):
         accID = accPlus = origin['account']
         region = origin['region']
-        suffix = ''
+        # suffix = ''
         if 'sharedas' in origin:
             accPlus = accID + origin['sharedas']
         accountRole = global_accts[accPlus]['role']
@@ -67,9 +70,13 @@ class TemporalDeployer():
         print(f'   ------------------------')
         aconnect = awsConnect(accID, origin['eID'], origin['role_definer'], sts_client, region)
         aconnect.connect()
-        results = None
+        # results = None
         output_dir = None
-        if type_in == "-CF":
+        if type_in == "-CK" or type_in == "-CS":  # Containers for K8 --> cluster name
+            ck = ContainerMolder("ansible", type_in, self.root)
+            acctID, target, acctTitle, ready = ck.define(svc_in, aconnect, origin, global_accts, sendto)
+            output_dir = ck.finalDir_output
+        elif type_in == "-CF":
             cm = CloudFrontMolder("ansible", self.root)
             acctID, target, acctTitle, ready = cm.cfront_describe(
                 svc_in, aconnect, origin, global_accts, sendto)
@@ -116,7 +123,7 @@ class TemporalDeployer():
             eID = global_accts[accID]['eID']
         aconnect = awsConnect(accID, eID, accountRole, sts_client, region)
         aconnect.connect()
-        results = None
+        # results = None
         if type_in == "-CF":
             cm = CloudFrontMolder("ansible")
             print("CF TEST here")
@@ -160,6 +167,7 @@ def print_help():
         -[NOTE]-->  the above will describe activities api with all methods *
     python Main_DEPLOYER.py -G dev "test,stage" *[*] ENVR.yaml API_Name true
     python Main_DEPLOYER.py -G dev "test,stage" API_Name ENVR.yaml API_Name true
+    python Main_DEPLOYER.py -CK dev "test,stage" Cluster_Name ENVR.yaml API_Name true
         -[NOTE]-->  the above will deploy all API under API_Name... both rolename(API_Name) and targetAPI MUST be SAME
     OR to deploy without Defining
         -[NOTE]-->  the above will deploy to stage,test
@@ -172,13 +180,21 @@ def main(tmp=None, bucket=None, target_path=None):
     directory = os.path.join('../../ansible')
     found = None
     length = 0
-    tot = len(sys.argv) - 1
+    CMD_STRING = sys.argv
+    tot = len(CMD_STRING) - 1
     SkipDefinition = False
-    type_in = str(sys.argv[1]).strip()
+    type_in = str(CMD_STRING[1]).strip()
+    argv_str = " ".join(CMD_STRING)
 
     if 'help' in type_in:
         print_help()
         exit()
+    render_to = None
+    if "-o terraform" in argv_str:
+        render_to = "terraform"
+        argv_str = argv_str.replace("-o terraform", "")
+        CMD_STRING = argv_str.split(" ")
+        tot = tot - 1
 
     targetAPI = fullUpdate = target_environments = None
     if tot < 6:
@@ -193,38 +209,38 @@ def main(tmp=None, bucket=None, target_path=None):
         elif totTypeIn > 4:
             SkipDefinition = True
     if not SkipDefinition:
-        source_environment = str(sys.argv[2]).strip()
-        target_environments = str(sys.argv[3]).strip().split(",")
-        role = str(sys.argv[4]).strip()
-        config = str(sys.argv[5]).strip()  # ENVR.yaml
-        if '/' in str(sys.argv[6]):
-            sendto = str(sys.argv[6]).strip()  # 'some path'
+        source_environment = str(CMD_STRING[2]).strip()
+        target_environments = str(CMD_STRING[3]).strip().split(",")
+        role = str(CMD_STRING[4]).strip()
+        config = str(CMD_STRING[5]).strip()  # ENVR.yaml
+        if '/' in str(CMD_STRING[6]):
+            sendto = str(CMD_STRING[6]).strip()  # 'some path'
         else:
             sendto = os.path.join('../../ansible/roles')
             if tmp:
                 sendto = "%s/%s" % (tmp, "ansible/roles")
                 if not os.path.exists(sendto):
                     os.makedirs(sendto)
-            sys.argv.append(sys.argv[7])
-            sys.argv[7] = sys.argv[6]
+            CMD_STRING.append(CMD_STRING[7])
+            CMD_STRING[7] = CMD_STRING[6]
         roleString = roleCleaner(role)
 
-        # targetAPI = str(sys.argv[7]).strip()   ### API_Name
-        if len(sys.argv) > 7:
-            targetAPI = str(sys.argv[7]).strip()
+        # targetAPI = str(CMD_STRING[7]).strip()   ### API_Name
+        if len(CMD_STRING) > 7:
+            targetAPI = str(CMD_STRING[7]).strip()
             if targetAPI.lower() == "none" or targetAPI.lower() == "null" or targetAPI == "*":
                 targetAPI = None
-        # fullUpdate = str(sys.argv[8]).strip()   ### true
+        # fullUpdate = str(CMD_STRING[8]).strip()   ### true
         if tot > 8:
-            fullUpdate = str(sys.argv[8]).strip().lower()  # true
+            fullUpdate = str(CMD_STRING[8]).strip().lower()  # true
             if fullUpdate == "none" or fullUpdate == "null" or fullUpdate == "false":
                 fullUpdate = False
             else:
                 fullUpdate = True
     else:
         target_environments = type_in.split(",")
-        role = str(sys.argv[2]).strip()
-        config = str(sys.argv[3]).strip()
+        role = str(CMD_STRING[2]).strip()
+        config = str(CMD_STRING[3]).strip()
 
     start_time = time.time()
 
@@ -254,6 +270,26 @@ def main(tmp=None, bucket=None, target_path=None):
         logger.info(f'DEFINED in {time.time() - start_time} seconds')
         logger.info(f'...FILES can be found in ...{output_dir}')
         # BELOW to skip deployment
+        if render_to == "terraform":
+            print("converting Yaml to terraform files...")
+            tf = py2hcl()
+            files_pending = "%s/%s" % (output_dir, "defaults")
+            for file in os.listdir(files_pending):
+                if file.startswith("main_"):
+                    label = os.path.splitext(file)[0]
+                    file_path = "%s/%s" % (files_pending, file)
+                    obj = loadYaml(file_path)
+                    hcl = tf.dumps(obj)
+                    in_folder =  "%s/%s" % (output_dir, "terraform")
+                    target_path = "%s/%s.tfvars" % (in_folder, label)
+                    try:
+                        os.mkdir(in_folder)
+                    except Exception as error:
+                        print("[W] Directory already exists (%s) :  %s" % (error, in_folder))
+                    writeTXT(hcl, target_path)
+
+            print(f"terraform files can be found in {output_dir}")
+            exit()
         # exit()
 
     if ready or SkipDefinition:
@@ -280,7 +316,7 @@ def main(tmp=None, bucket=None, target_path=None):
 # def lambda_handler(event, context):
 #     print('LAMBDAEVENT: ', event)
 #
-#     parsed_args = sys.argv
+#     parsed_args = CMD_STRING
 #     parsed_args.append(f"-{event['service']}")
 #     parsed_args.append('dev')
 #     parsed_args.append(event['env'])

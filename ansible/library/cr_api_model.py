@@ -166,11 +166,15 @@ def cr_modelUpdate(module, client, name, contentType, restApiName, restApiId, sc
     patches.append(patch)
 
     try:
+        # module.fail_json(msg="[TTT] cr_model [{1}] update_model failed - {0}:::{2}".format(restApiId, name, schema))
         response = client.update_model(restApiId=restApiId, modelName=name, patchOperations=patches)
         found = False
     except ClientError as e:
+        API_MAP = ""
         msg = e.response['Error']['Message']
-        module.fail_json(msg="[E] cr_model [{1}] update_model failed - {0}".format(msg, name))
+        if "must be scoped to REST API" in msg:
+            API_MAP = "...Given rest ID inside Schema does not match the rest ID in the schema '{0}'... the original schema is flawed".format(restApiId)
+        module.fail_json(msg="[E] cr_model [{1}] update_model failed - {0} {2}".format(msg, name, API_MAP))
 
     return [name], False if found else True
 

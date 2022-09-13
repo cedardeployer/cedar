@@ -482,6 +482,13 @@ def loadYaml(fullpath):
         return None, None, None
     return exp
 
+def writeTXT(data,filepath, ext=''):
+    fullpath="%s.%s"%(filepath,ext)
+    f = open(fullpath,'w')
+    f.write(data.strip())
+    f.close()
+    return fullpath
+
 
 def loadConfig(fullpath, env):
     # Start internal config load

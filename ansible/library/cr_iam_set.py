@@ -111,12 +111,17 @@ def role_exists(state, client, name):
     return False
 
 
-def cr_iam_role(state, module, client, name=None, resource=None, policy=None, actionPolicyNames=[], description=''):
+def cr_iam_role(state, module, client, name=None, aws_path=None, resource=None, policy=None, actionPolicyNames=[], description=''):
     pName = name
     found = True
     foundRole = role_exists(state, client, name)
     if foundRole:
         if 'service-role/' in foundRole['Path']:  # global so need to update?
+            return [pName], False if found else True
+        elif 'arn:aws:iam::aws:' in foundRole['Arn']:
+            return [pName], False if found else True
+    elif aws_path:
+        if 'service-role/' in aws_path:
             return [pName], False if found else True
     try:
         irole = client.create_role(RoleName=pName, AssumeRolePolicyDocument=policy)['Role']
@@ -137,12 +142,15 @@ def cr_iam_role(state, module, client, name=None, resource=None, policy=None, ac
 
 
 # create a policy given actionPolicy object
-def cr_iam_policy(state, module, client, name=None, resource=None, actionPolicy=None, description=None):
+def cr_iam_policy(state, module, client, name=None, aws_path=None, resource=None, actionPolicy=None, description=None):
     pName = name
     found = True
     global_policy = policy_custom(state, client, name)
     if global_policy:
         return [pName], False if found else True
+    elif aws_path:
+        if 'service-role/' in aws_path:
+            return [pName], False if found else True
     try:
         ipolicy = client.create_policy(PolicyName=pName, PolicyDocument=actionPolicy, Description=description)
         found = False
@@ -233,6 +241,7 @@ def main():
         state=dict(required=True, choices=['present', 'absent']),
         description=dict(default=None, required=False),
         action_policy_labels=dict(required=False, default=None, type='list'),
+        aws_path=dict(default=None, required=False),
         action_policy_filepath=dict(default=None, required=False),
         action_policy=dict(type='dict', default=None, required=False),
         trust_policy_filepath=dict(default=None, required=False),
@@ -280,6 +289,7 @@ def main():
 
     description = module.params.get('description')
     state = module.params.get('state')
+    aws_path = module.params.get('aws_path')
 
     action_policy_labels = module.params.get('action_policy_labels')
     name = module.params.get('name')
@@ -322,9 +332,9 @@ def main():
         iam_role = module.params.get('role')
         typeList, changed = cr_iam_profile(state, module, client, name, resource, iam_role)
     elif 'role' in iam_type:
-        typeList, changed = cr_iam_role(state, module, client, name, resource, trust_policy_doc, action_policy_labels, description)
+        typeList, changed = cr_iam_role(state, module, client, name, aws_path, resource, trust_policy_doc, action_policy_labels, description)
     elif 'policy' in iam_type:
-        typeList, changed = cr_iam_policy(state, module, client, name, resource, action_policy_doc, description)
+        typeList, changed = cr_iam_policy(state, module, client, name, aws_path, resource, action_policy_doc, description)
 
     else:
         module.fail_json(msg="Sorry  {0} not yet implemented".format(iam_type))
