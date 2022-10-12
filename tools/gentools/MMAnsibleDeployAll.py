@@ -17,6 +17,7 @@ from botocore.exceptions import ClientError
 import json
 import sys
 from shutil import copyfile
+from tools.gentools.microUtils import copy_tree
 import fileinput
 import logging
 import urllib
@@ -143,49 +144,57 @@ def deployStart(target_name, accounts, targets, role, static_path=None, HardStop
     for target in targets:
         for k, v in accounts.items():
             if target in v['all']:
-
+                # move copy directory to folder
+                src_dir = f"../../ansible/roles/{role}/files_{v['all']}"
+                dst_dir = f"../../ansible/roles/{role}/files"
+                # copytree(src_dir, dst_dir, dir_exists_ok=True)
+                copy_tree(src_dir, dst_dir)
+                # print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+                # print(src_dir)
+                # print(dst_dir)
+                # print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+                # raise
                 # SENTRY: Put Sentry back if it was in target (Taken out at lambda describe)
-                try:
-                    sts_client = awsconnect.stsClient
-                    aconnect2 = awsConnect(k, v['eID'], v['role'], sts_client, 'us-east-1')
-                    aconnect2.connect()
-                    client = aconnect2.__get_client__('lambda')
-                    lmda = client.get_function(FunctionName=target_name)
+                # try:
+                #     sts_client = awsconnect.stsClient
+                #     aconnect2 = awsConnect(k, v['eID'], v['role'], sts_client, 'us-east-1')
+                #     aconnect2.connect()
+                #     client = aconnect2.__get_client__('lambda')
+                #     lmda = client.get_function(FunctionName=target_name)
 
-                    with open(f"../../ansible/roles/{role}/defaults/main_{v['all']}.yaml", "r") as stream:
-                        try:
-                            ydata = yaml.safe_load(stream)
-                        except yaml.YAMLError as exc:
-                            print(exc)
-                    if ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler'] != lmda['Configuration']['Handler']:
-                        ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler'] = lmda['Configuration']['Handler']
-                    if 'Environment' in lmda['Configuration']:
-                        if 'Variables' in lmda['Configuration']['Environment']:
-                            if 'SENTRY_ENVIRONMENT' in lmda['Configuration']['Environment']['Variables']:
-                                if 'SENTRY_ENVIRONMENT' in ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables']:
-                                    del ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables']['SENTRY_ENVIRONMENT']
-                            for nvar, nvarv in lmda['Configuration']['Environment']['Variables'].items():
-                                if 'SENTRY' in nvar:
-                                    ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables'][nvar] = nvarv
-                        # if lmda['Configuration']['Environment']['Variables']:
-                        #     ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables'].update(lmda['Configuration']['Environment']['Variables'])
-                    if 'Layers' in lmda['Configuration']:
-                        if lmda['Configuration']['Layers']:
-                            for lay in lmda['Configuration']['Layers']:
-                                if 'Sentry' in lay:
-                                    # if 'sentry_sdk.integrations.init_serverless_sdk.sentry_lambda_handler' in ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler']:
-                                    ydata[f'A{role}'.replace('-', '_')]['lambda_updates'][0]['layers'].extend(lmda['Configuration']['Layers'])
-                                    # Add layer to main
+                #     with open(f"../../ansible/roles/{role}/defaults/main_{v['all']}.yaml", "r") as stream:
+                #         try:
+                #             ydata = yaml.safe_load(stream)
+                #         except yaml.YAMLError as exc:
+                #             print(exc)
+                #     if ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler'] != lmda['Configuration']['Handler']:
+                #         ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler'] = lmda['Configuration']['Handler']
+                #     if 'Environment' in lmda['Configuration']:
+                #         if 'Variables' in lmda['Configuration']['Environment']:
+                #             if 'SENTRY_ENVIRONMENT' in lmda['Configuration']['Environment']['Variables']:
+                #                 if 'SENTRY_ENVIRONMENT' in ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables']:
+                #                     del ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables']['SENTRY_ENVIRONMENT']
+                #             for nvar, nvarv in lmda['Configuration']['Environment']['Variables'].items():
+                #                 if 'SENTRY' in nvar:
+                #                     ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables'][nvar] = nvarv
+                #         # if lmda['Configuration']['Environment']['Variables']:
+                #         #     ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['environment_variables'].update(lmda['Configuration']['Environment']['Variables'])
+                #     if 'Layers' in lmda['Configuration']:
+                #         if lmda['Configuration']['Layers']:
+                #             for lay in lmda['Configuration']['Layers']:
+                #                 if 'Sentry' in lay:
+                #                     # if 'sentry_sdk.integrations.init_serverless_sdk.sentry_lambda_handler' in ydata[f'A{role}'.replace('-', '_')]['lambdas'][0]['handler']:
+                #                     ydata[f'A{role}'.replace('-', '_')]['lambda_updates'][0]['layers'].extend(lmda['Configuration']['Layers'])
+                #                     # Add layer to main
 
-                    with open(f"../../ansible/roles/{role}/defaults/main_{v['all']}.yaml", 'w', encoding='utf8') as outfile:
-                        outfile.write('---\n')
-                        yaml.dump(ydata, outfile, default_flow_style=False, allow_unicode=True)
+                #     with open(f"../../ansible/roles/{role}/defaults/main_{v['all']}.yaml", 'w', encoding='utf8') as outfile:
+                #         outfile.write('---\n')
+                #         yaml.dump(ydata, outfile, default_flow_style=False, allow_unicode=True)
 
-                except client.exceptions.ResourceNotFoundException:
-                    print("    Does not yet exist in target env...")
+                # except client.exceptions.ResourceNotFoundException:
+                #     print("    Does not yet exist in target env...")
                     # pass
                 # SENTRY: END
-
                 account, target, result = ansibleInvoke(k, v, role, static_path)
                 outputs.update({account: {"name": target, "value": result}})
                 if HardStop:

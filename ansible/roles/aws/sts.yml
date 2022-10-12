@@ -1,5 +1,23 @@
 ---
 
+- name: assume ORIGIN [STS] roleXaccount deployment cross_acct_role
+  sts_assume_role:
+    role_arn: "arn:aws:iam::{{ project.origin.account_id }}:role/{{ project.origin.cross_acct_role }}"
+    role_session_name: "cross_acct_role"
+    external_id: "{{ project.origin.eid }}"
+    region: "{{project.origin.region | default(null)}}"
+    duration_seconds: "{{ project.origin.role_duration }}"
+  register: assumed_origin_role
+  when: "project.origin.cross_acct_role is defined and not aws_origin_token is defined"
+
+- name: set ORIGIN [STS] Xcredentials CROSS STS call
+  set_fact:
+    access: "{{  assumed_origin_role.sts_creds.access_key }}"
+    secret: "{{  assumed_origin_role.sts_creds.secret_key }}"
+    token: "{{  assumed_origin_role.sts_creds.session_token }}"
+  when: "assumed_origin_role.changed == True"
+
+
 - name: assume [STS] role for cross account deployment cross_acct_role
   sts_assume_role:
     role_arn: "arn:aws:iam::{{ project.account_id }}:role/{{ project.cross_acct_role }}"

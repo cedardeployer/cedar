@@ -8,14 +8,49 @@
     aws_secret_key: "{{ secret }}"
     security_token: "{{ token }}"
     region: "{{project.region | default(null)}}"
-    state: "{{ item.state }}"
+    state: "{{ item.state | default('present')}}"
     name:  "{{ item.name }}"
-    policy: "{{ item.policy_file | default(null)}}"
-    versioning: "{{ item.versioning | default(null)}}"
-    purge_tags: "{{ item.purge_tags  | default('no')}}"
+    policy: "{{ lookup('file', item.policy_document) }}"
+    # versioning: "{{ item.versioning | default('no')}}"
+    # purge_tags: "{{ item.purge_tags  | default('no')}}"
   with_items: "{{ project.buckets }}"
   register: s3_policy_version
-  when: item.policy_file is defined or item.versioning is defined
+  when: item.policy_document is defined or item.versioning is defined
+
+- name: s3_CORS setup
+  community.aws.aws_s3_cors:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    rules: "{{ item.cors }}"
+  with_items: "{{ project.buckets }}"
+  when: item.cors is defined
+
+
+- name: s3 copy files from local
+  s3_sync:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    bucket: "{{ item.name }}"
+    file_root: "{{ item.bucket_dir | default(null)}}"
+    # key_prefix: config_files/web
+    file_change_strategy: force
+    include: "*"
+    exclude: "*__MACOSX,.*"
+  with_items: "{{ project.buckets }}"
+  when: item.bucket_dir is defined
+
+# - s3_bucket:
+#     name: mys3bucket
+#     policy: "{{ lookup('file','policy.json') }}"
+#     requester_pays: yes
+#     versioning: yes
+#     tags:
+#       example: tag1
+#       another: tag2
 
 # - name: s3_buckets & policy
 #   s3_bucket:
@@ -41,6 +76,68 @@
 #   when: item.changed == false and item.versioning is defined
 #   with_items: s3_policy_version.results
 
+# - name: s3_copy FLIP TO ORIGIN--->
+#   import_tasks: ../aws/sts.yml
+#   vars:
+#     project: '{{ s3.project }}'
+#   when: project.origin is defined
+
+# - name: s3_copy Add Policy
+#   import_tasks: ../aws/IAM.yml
+#   vars:
+#     project: '{{ s3.project }}'
+#   when: project.origin is defined
+
+
+
+# - name: s3_copy FLIP BACK--->
+#   import_tasks: ../aws/sts.yml
+#   vars:
+#     project: '{{ project }}'
+#   when: project.origin is defined
+
+# - name: s3_copy Files now with permissions
+#   cd_s3_copy:
+#     aws_access_key: "{{ access }}"
+#     aws_secret_key: "{{ secret }}"
+#     security_token: "{{ token }}"
+
+#     state: "{{ item.state }}"
+#     prefix: "{{ item.Prefix  | default('')}}"
+#     suffix: "{{ item.Suffix  | default('')}}"
+#   with_items: "{{ project.buckets }}"
+#   when: project.origin is defined
+
+# - name: s3_copy FLIP TO ORIGIN--->
+#   import_tasks: ../aws/sts.yml
+#   vars:
+#     project: '{{ s3.project }}'
+#   when: project.origin is defined
+
+# - name: s3_copy REMOVE Policy
+#   import_tasks: ../aws/IAM.yml
+#   vars:
+#     project: '{{ s3.project }}'
+#   when: project.origin is defined
+
+# - name: s3_copy FLIP BACK--->
+#   import_tasks: ../aws/sts.yml
+#   vars:
+#     project: '{{ project }}'
+#   when: project.origin is defined
+- name: permit[s3][lambda]
+  cd_lambda_permit:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    name: "{{ item.lambda_arn }}"                
+    state: "{{ item.state }}"
+    account: "{{ project.account_id }}"
+    event_source:
+      type: "s3"
+      name: "{{ item.bucket }}"
+  with_items: "{{ project.bucket_triggers }}"
+  when: item.lambda_arn is defined
 
 - name: event[S3][lambda] adding Trigger w/ FILTER
   s3_bucket_notification:
@@ -49,15 +146,14 @@
     security_token: "{{ token }}"
     region: "{{project.region | default(null)}}"
     state: "{{ item.state }}"
-    event_name: "{{ item.Id }}"
+    event_name: "{{ item.id }}"
     bucket_name: "{{ item.bucket }}"
-    lambda_function_arn: "{{ item.lambdaArn }}"
+    lambda_function_arn: "{{ item.lambda_arn }}"
     events: "{{ item.events }}"
-    prefix: "{{ item.Prefix  | default('')}}"
-    suffix: "{{ item.Suffix  | default('')}}"
-  with_items: "{{ project.buckets }}"
-  when: item.lambdaArn is defined
-  register: s3_filters
+    prefix: "{{ item.prefix  | default('')}}"
+    suffix: "{{ item.suffix  | default('')}}"
+  with_items: "{{ project.bucket_triggers }}"
+  when: item.lambda_arn is defined
 
 
 # - name: event[S3][SNS] adding Trigger

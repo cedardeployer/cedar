@@ -10,6 +10,7 @@ import time
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from tools.gentools import awsconnect
 from tools.gentools.microMolder import LambdaMolder
+from tools.gentools.microStorage import StorageMolder
 from tools.gentools.microContainer import ContainerMolder
 from tools.gentools.microFront import CloudFrontMolder
 from tools.gentools.microGateway import ApiGatewayMolder
@@ -76,6 +77,12 @@ class TemporalDeployer():
             ck = ContainerMolder("ansible", type_in, self.root)
             acctID, target, acctTitle, ready = ck.define(svc_in, aconnect, origin, global_accts, sendto)
             output_dir = ck.finalDir_output
+        elif type_in == "-S3" or type_in == "-S3C" or type_in == "-S3M":  # S3 and copy configs
+            if type_in == "-S3M":
+                raise Exception("[E] S3M , moving between accounts is not supported yet")
+            s3 = StorageMolder("ansible", type_in, self.root)
+            acctID, target, acctTitle, ready = s3.define(svc_in, aconnect, origin, global_accts, sendto)
+            output_dir = s3.finalDir_output
         elif type_in == "-CF":
             cm = CloudFrontMolder("ansible", self.root)
             acctID, target, acctTitle, ready = cm.cfront_describe(
@@ -165,12 +172,15 @@ def print_help():
         -[NOTE]-->  the above can also deploy API only using -G , CloudFront using -CF, DynamoDB using -DY
     python Main_DEPLOYER.py -G dev "test,stage" activities[*] ENVR.yaml API_Name true
         -[NOTE]-->  the above will describe activities api with all methods *
+    python main_Deployer.py -S3C dev2 "uat2" "pp-portal-dev2/data/config/policies.env.dev" ENVR.yaml pp_core true
+    python main_Deployer.py -S3C dev2 "uat2" "pp-portal-dev2/data/config/" ENVR.yaml pp_core true
     python Main_DEPLOYER.py -G dev "test,stage" *[*] ENVR.yaml API_Name true
     python Main_DEPLOYER.py -G dev "test,stage" API_Name ENVR.yaml API_Name true
     python Main_DEPLOYER.py -CK dev "test,stage" Cluster_Name ENVR.yaml API_Name true
         -[NOTE]-->  the above will deploy all API under API_Name... both rolename(API_Name) and targetAPI MUST be SAME
     OR to deploy without Defining
         -[NOTE]-->  the above will deploy to stage,test
+    python Main_DEPLOYER.py -L dev "test,stage" API_Name ENVR.yaml API_Name true -o terraform
     ************************************************************
     """)
 

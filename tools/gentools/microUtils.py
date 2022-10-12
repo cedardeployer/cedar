@@ -18,6 +18,7 @@ from botocore.exceptions import ClientError
 import json
 import sys
 from shutil import copyfile
+from shutil import copytree, copy2
 import fileinput
 import logging
 import urllib
@@ -122,7 +123,7 @@ def describe_role(name, aconnect, acct, apiTRigger=False):
     client = aconnect.__get_client__('iam')
     #client = boto3.client('iam')
     if "/" in name:
-        name = name.split("/")[1]
+        name = name.split("/")[-1]
     roleData = client.get_role(RoleName=name)['Role']
     del roleData['CreateDate']
     arn = roleData['Arn']
@@ -251,6 +252,25 @@ def s3_put(bucket, targetKey, localfile, resource=None):
             raise
     return False
 
+def s3_get(bucket,targetKey, localfile, resource=None):
+    if resource is None:
+        resource = boto3.resource('s3')
+    try:
+        #s3_client.download_file(self.bucket, targetKey, localfile)
+        print(" GET from bucket %s   file:%s  to:%s"%(bucket,targetKey, localfile))
+        resource.Bucket(bucket).download_file(targetKey, localfile )
+        return True
+    except ClientError as ex:
+        msg="[E] during s3 get. file:%s target:%s/%s error:%s"%(localfile, bucket, targetKey, ex)
+        print(msg)
+            #self.slackSend(self.channelName,msg,self.current.slack_name, ":bomb:")
+        if ex.response['Error']['Code'] == "404":
+            logger.warning("5 the file  %s does not exist."%localfile)
+            print(" the file %s does not exist."%localfile)
+        else:
+            raise
+    return False
+
 def s3_get_stream(bucket, targetKey, encoding='utf-8', resource=None):
     if resource is None:
         resource = boto3.resource('s3')
@@ -263,7 +283,26 @@ def s3_get_stream(bucket, targetKey, encoding='utf-8', resource=None):
     else:
         return obj.get()['Body'].read().decode(encoding)
 
-def file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS):
+def copy_tree(src, dst, symlinks=False, ignore=None):
+    # distutils.dir_util.copy_tree(src, dst, symlinks, ignore)
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            # shutil.copytree(s, d, symlinks, ignore)
+            shutil.copytree(s, d, dirs_exist_ok=True)
+        else:
+            shutil.copy2(s, d)
+
+def cleanAcct_num(acct_num):
+    acct_num = acct_num.replace(' ', '')
+    acct_num = acct_num.split('-')[0]
+    acct_num = acct_num.split('_')[0]
+    return str(acct_num)
+
+def file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS , entire_file=False):
+    if entire_file:
+        account_replace(yaml_main, cleanAcct_num(acctPlus), cleanAcct_num(akey))
     for SVC_MAP in ALL_MAPS:
         typeObj = SVC_MAP[akey]
         for key, value in SVC_MAP[acctPlus].items():

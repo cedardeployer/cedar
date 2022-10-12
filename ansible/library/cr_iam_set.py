@@ -145,7 +145,10 @@ def cr_iam_role(state, module, client, name=None, aws_path=None, resource=None, 
 def cr_iam_policy(state, module, client, name=None, aws_path=None, resource=None, actionPolicy=None, description=None):
     pName = name
     found = True
-    global_policy = policy_custom(state, client, name)
+    global_policy = policy_custom(state, client, name)    
+    # if "AmazonEC2RoleforSSM" in name:
+    #     module.fail_json(msg=" [TTT] [POLICY] - {0},::::: {1}".format(name, global_policy))
+
     if global_policy:
         return [pName], False if found else True
     elif aws_path:

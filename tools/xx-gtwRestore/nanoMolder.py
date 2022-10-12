@@ -53,7 +53,7 @@ def ec2Enabled(current, code_zip, event, envs):
     iam_client = boto3.client('iam')
     lbda = boto3.client('lambda')
     role_method = lbda.get_function(FunctionName=Main_method)['Configuration']['Role']
-    roleUsed = role_method.split('/')[1]
+    roleUsed = role_method.split('/')[-1]
     # print 'role above....'
     # roleIN= iam.Role(roleUsed)
     pName = 'CR_profile-Ansible'

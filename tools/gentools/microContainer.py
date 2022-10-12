@@ -22,7 +22,7 @@ from tools.gentools.awsconnect import awsConnect
 from tools.gentools.microUtils import writeYaml
 from tools.gentools.microUtils import writeJSON
 from tools.gentools.microUtils import account_replace
-from tools.gentools.microUtils import ansibleSetup
+from tools.gentools.microUtils import ansibleSetup, file_replace_obj_found
 from tools.gentools.microUtils import describe_role
 from tools.gentools.microUtils import loadServicesMap
 # from tools.gentools.microUtils import config_updateRestricted
@@ -102,27 +102,31 @@ class ContainerMolder():
         return getCL
 
     def ecs_cluster_describe(self, client, target):
-        print("******CLUSTER*******")
+        # print("******CLUSTER*******")
         getCL = client.describe_clusters(clusters=[target])
-        print(getCL)
+        # print(getCL)
         return getCL
 
     def ecs_taskfam_describe(self, client, target):
-        print("******FAM*******")
+        # print("******FAM*******")
         task_families = []
         task_fams = client.list_task_definition_families()
-        for tf in task_fams['families']:
-            print(tf)
+        # for tf in task_fams['families']:
+        #     print(tf)
         return task_families
 
-    def ecs_task_describe(self, client, target):    
-        print("******TASK DescribE *******")       
+    def ecs_service_describe(self, client, target, svc_target=None):    
+        # print("******TASK DescribE *******")       
         tlist = client.list_tasks(cluster=target)
         task_in = client.describe_tasks(cluster=target, tasks=tlist['taskArns'])
+        services_in = client.list_services(cluster=target)
         ecr_imgs = []
         tdef_arn=[]
         task_defs = []
-        print("******TASK IN *******")
+        svc_set=[]
+        roles = []
+        elbs = []
+        # print("******TASK IN *******")
         for tsk in task_in['tasks']:
             uri = tsk['containers'][0]['image'].split(':')[0]
             ecr_imgs.append(uri)
@@ -138,14 +142,79 @@ class ContainerMolder():
                 "group": tsk['group'],
                 "version": tsk['version'],
             })
-        print("******DefiNition *******")
+
+
+        # print("******TASK SERVICES *******")
+        for svc in services_in['serviceArns']:
+            svc_info = client.describe_services(cluster=target, services=[svc])
+            for ss in svc_info['services']:
+                cp_strategy = ss['capacityProviderStrategy'][0]['capacityProvider']
+                loadbcrs = [ lbs['containerName'] for lbs in ss['loadBalancers'] ]
+                elbs = elbs + loadbcrs
+                if 'deploymentConfiguration' in ss:
+                    if 'maximumPercent' in ss['deploymentConfiguration']:
+                        ss['maximum_percent'] = ss['deploymentConfiguration']['maximumPercent']
+                    if 'minimumHealthyPercent' in ss['deploymentConfiguration']:
+                        ss['minimum_healthy_percent'] = ss['deploymentConfiguration']['minimumHealthyPercent']
+                    del ss['deploymentConfiguration']['deploymentCircuitBreaker']
+                    del ss['deploymentConfiguration']['maximumPercent']
+                    del ss['deploymentConfiguration']['minimumHealthyPercent']
+                
+                network = ss['networkConfiguration']
+                if 'networkConfiguration' in ss:
+                    if 'awsvpcConfiguration' in ss['networkConfiguration']:
+                        ss['assign_public_ip'] = ss['networkConfiguration']['awsvpcConfiguration']['assignPublicIp']
+                        if 'securityGroups' in ss['networkConfiguration']['awsvpcConfiguration']:
+                            ss['security_groups'] = ss['networkConfiguration']['awsvpcConfiguration']['securityGroups']
+                        if 'subnets' in ss['networkConfiguration']['awsvpcConfiguration']:
+                            ss['subnets'] = ss['networkConfiguration']['awsvpcConfiguration']['subnets']
+                        del ss['networkConfiguration']['awsvpcConfiguration']['securityGroups']
+                        del ss['networkConfiguration']['awsvpcConfiguration']['subnets']
+                        del ss['networkConfiguration']['awsvpcConfiguration']['assignPublicIp']
+                        network = ss['networkConfiguration']['awsvpcConfiguration']
+
+                sobj = {
+                    "name": ss['serviceName'],
+                    "state": "present",
+                    "cluster": ss['clusterArn'].split('/')[-1],
+                    "taskDefinition": ss['taskDefinition'],
+                    "loadBalancers": loadbcrs,
+                    "serviceRegistries": ss['serviceRegistries'],
+                    "desiredCount": ss['desiredCount'],
+                    "launchType": cp_strategy if 'FARGATE' in cp_strategy else 'EC2',
+                    "capacityProviderStrategy": ss['capacityProviderStrategy'],
+                    # "platformVersion": ss['platformVersion'],
+                    # "propagateTags": ss['propagateTags'],
+                    "role": ss['roleArn'],
+                    "placementConstraints": ss['placementConstraints'],
+                    "placementStrategy": ss['placementStrategy'],
+                    "networkConfiguration": network,
+                    "healthCheckGracePeriodSeconds": ss['healthCheckGracePeriodSeconds'],
+                    "schedulingStrategy": ss['schedulingStrategy'],
+                    "deploymentConfiguration": ss['deploymentConfiguration'],
+                    "enableECSManagedTags": ss['enableECSManagedTags'],
+                }
+                if 'deploymentController' in ss:
+                    if 'type' in ss['deploymentController']:
+                        sobj['deploymentController'] = ss['deploymentController']
+                if sobj['role'] not in roles and 'aws-service-role' not in sobj['role']:
+                    roles.append(sobj['role'])
+                if not svc_target:
+                    svc_set.append(sobj)
+                else:
+                    if svc_target in ss['serviceName']:
+                        svc_set.append(sobj)
+                        break
+        # print("******DefiNition *******")
         temp_arns=[]
         for tdef in tdef_arn:
             tdd = client.describe_task_definition(taskDefinition=tdef['taskDefinitionArn'])['taskDefinition']
-            print("_____00000@@ *******")
+            # print("_____00000@@ *******")
             if tdd['taskDefinitionArn'] in temp_arns:
                 continue
             temp_arns.append(tdd['taskDefinitionArn'])
+            if tdd['executionRoleArn'] not in roles:
+                roles.append(tdd['executionRoleArn'])
             task_defs.append({
                 "taskDefinitionArn": tdd['taskDefinitionArn'],
                 "family": tdd['family'],
@@ -159,29 +228,77 @@ class ContainerMolder():
                 "memory": tdd['memory'],
                 "volumes": tdd['volumes']
             })
-        return tdef_arn, ecr_imgs, task_defs
+        return tdef_arn, ecr_imgs, task_defs, svc_set, roles, elbs
 
-    def ecr_describe(self, client, target, ecr_imgs):
-        print("******ECR*******")
-        print(ecr_imgs)
-        repos = client.describe_repositories()
-        for r in repos['repositories']:
-            if r['repositoryUri'] not in ecr_imgs:
-                continue
-            print("********-----*[R]*----********")
-            print(r)
-            ecr_imgs = client.describe_images(repositoryName=r['repositoryName'])
-            print(".....******IMAGES*******")
-            for i in ecr_imgs['imageDetails']: 
-                print(i)
+    def ecr_describe(self, client, ecr_imgs, targets=None):
+        # print("******ECR*******")
+        # print(ecr_imgs)
+        repos = []
+        rr_in = client.describe_repositories()
+        for r in rr_in['repositories']:
+            if r['repositoryUri'] in ecr_imgs:
+                repos.append({"name": r['repositoryName'], "uri": r['repositoryUri']})
         return repos
 
-    def elb_describe(self, client, target):
-        print("******ELB*******")
+    def elb_describe(self, client, targets):
+        # print("******ELB*******")
+        elbs_in = []
         elbs = client.describe_load_balancers()
-        for elb in elbs['LoadBalancerDescriptions']:
-            print(elb)
-        return elbs
+        target_groups = []
+        target_gs = client.describe_target_groups()
+        for tg in target_gs['TargetGroups']:
+            if tg['TargetGroupName'] in targets:
+                tg_in = {
+                    "name": tg['TargetGroupName'],
+                    "state": "present",
+                    "protocol": tg['Protocol'],
+                    "port": tg['Port'],
+                    "vpcId": tg['VpcId'],
+                    "modify_targets": True,
+                    "health_check_protocol": tg['HealthCheckProtocol'],
+                    "health_check_port": tg['HealthCheckPort'],
+                    "health_check_path": tg['HealthCheckPath'],
+                    "health_check_interval": tg['HealthCheckIntervalSeconds'],
+                    "health_check_timeout": tg['HealthCheckTimeoutSeconds'],
+                    "healthyThresholdCount": tg['HealthyThresholdCount'],
+                    "healthy_threshold_count": tg['UnhealthyThresholdCount'],
+                    "unhealthy_threshold_count": tg['UnhealthyThresholdCount'],
+                    "target_type": tg['TargetType'],
+                    # "protocolVersion": tg['ProtocolVersion'],
+                    # "healthCheckEnabled": tg['HealthCheckEnabled'],
+                    # "targets": tg['Targets'],
+                    # "LoadBalancerArns": tg['LoadBalancerArns'],
+                }
+                target_groups.append(tg_in)
+        # print("******ELB IN*******")
+        for elb in elbs['LoadBalancers']:
+            subnets = [ee['SubnetId'] for ee in elb['AvailabilityZones']]
+            listeners = []
+            dlistens = client.describe_listeners(LoadBalancerArn=elb['LoadBalancerArn'])
+            for dl in dlistens['Listeners']:
+                drules = client.describe_rules(ListenerArn=dl['ListenerArn'])['Rules']
+                # drules = [dr['RuleArn'] for dr in drules
+                dl['Rules'] = drules
+                listeners.append(dl)
+            if elb['LoadBalancerName'] in targets:
+                eObj={
+                    "name": elb['LoadBalancerName'],
+                    "state": "present",
+                    "security_groups": elb['SecurityGroups'],
+                    "scheme": elb['Scheme'],
+                    "type": elb['Type'],
+                    "ipAddressType": elb['IpAddressType'],
+                    "listeners": dlistens['Listeners']
+                }
+                if subnets:
+                    eObj['subnets'] = subnets
+                # elif 'customerOwnedIpv4Pool' in elb:
+                #     eObj['customerOwnedIpv4Pool'] = elb['customerOwnedIpv4Pool']
+                # if 'SubnetMappings' in elb:
+                #     eObj['subnetMapping'] = elb['SubnetMappings']
+                elbs_in.append(eObj)
+        
+        return elbs_in, target_groups
 
 
     def behavior_describe(self, target, aconnect):
@@ -206,24 +323,39 @@ class ContainerMolder():
         elif 'ecs' in self.svc_type: #ECS type here
             client = aconnect.__get_client__('ecs')
             getCL = self.ecs_cluster_describe(client, target)
-            tdef_arn, ecr_imgs, task_defs = self.ecs_task_describe(client, target)
+            tdef_arn, ecr_imgs, task_defs, svc_in, roles, elb_tmps = self.ecs_service_describe(client, target)
             # fam = self.ecs_taskfam_describe(client, target)
-            
-    
+        
             ecr = aconnect.__get_client__('ecr')
-            containers = self.ecr_describe(ecr, target, ecr_imgs)
-                
-            elb = aconnect.__get_client__('elb')
-            elbs = self.elb_describe(elb, target)
+            ecr_imgs = self.ecr_describe(ecr, ecr_imgs)
+            
+            # elb = aconnect.__get_client__('elb')
+            elb = aconnect.__get_client__('elbv2')
+            elbs, target_groups = self.elb_describe(elb, elb_tmps)
+            elb_main={
+                "elbs": elbs,
+                "target_groups": target_groups
+            }
+            ## convert svc_in into a dictionary by name
+            # svc_dict = {}
+            # for svc in svc_in:
+            #     svc_dict[svc['name']] = svc
+            ecs_main={
+                "task_list": tdef_arn,
+                "task_definitions": task_defs,
+                "services": svc_in,
+
+            }
             return {
                     'name': target,
                     'target': target,
-                    'roleArn': getCL['clusters'][0]['roleArn'],
-                    'elbs': elbs,
-                }, tdef_arn, containers, task_defs
-
-
-
+                    'roles': roles,
+                    "state": "present", # "has_instances",
+                    "delay": 10,
+                    "repeat": 10
+                    # 'roleArn': getCL['clusters'][0]['roleArn'],
+                    # 'elb_apps': elbs,
+                }, elb_main, ecs_main, ecr_imgs
 
     # cluster K8 -CK
     #  python microMolder.py -CK policyport-clover-dev true ENVR.yaml
@@ -242,9 +374,13 @@ class ContainerMolder():
         if self.svc_type == 'eks':
             containerObj, node_groups, autoscale_group, launch_templates = self.behavior_describe(target, aconnect)
         elif self.svc_type == 'ecs':
-            containerObj, tdef_arn, ecr_imgs, task_defs = self.behavior_describe(target, aconnect)
+            containerObj, elb_main, ecs_main, ecr_imgs = self.behavior_describe(target, aconnect)
+        roles = []
+        for rrls in containerObj['roles']:
+            rle, resourceRole = describe_role(rrls, aconnect, self.origin['account'], False)
+            roles= roles + rle
 
-        roles, resourceRole = describe_role(containerObj['roleArn'], aconnect, self.origin['account'], False)
+
         target_file = '%s_%s' % (acctID, target)
         # for trigger in triggers:
         #     trigger
@@ -268,11 +404,22 @@ class ContainerMolder():
         taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target_file, True)
         taskWithFiles = [
             {"import_tasks": "../aws/sts.yml", "vars": {"project": '{{ project }}'}},
-            {"import_tasks": "../aws/cr_dynamodb.yml", # add ECR, EKS, ECS, ELB, Taskdef, TaskFam
-                "vars": {"project": '{{ project }}'}}
+            {"import_tasks": "../aws/IAM.yml", "vars": {"project": '{{ project }}'}},
+            # {"import_tasks": "../aws/cr_dynamodb.yml", # add ECR, EKS, ECS, ELB, Taskdef, TaskFam
+            #     "vars": {"project": '{{ project }}'}}
         ]
+
+
         taskRaw = taskMain[0]
         taskMain = [taskRaw] + taskWithFiles
+
+
+        taskMain.append({"import_tasks": "../aws/_elb.yml",
+                         "vars": {"project": '{{ project }}'}})
+        # taskMain.append({"import_tasks": "../aws/_ecr.yml",
+        #                  "vars": {"project": '{{ project }}'}})
+        # taskMain.append({"import_tasks": "../aws/_ecs.yml",
+        #                  "vars": {"project": '{{ project }}'}})
         #############################################
         #############################################
         # ####### write YAML to file in tasks  #######
@@ -334,24 +481,18 @@ class ContainerMolder():
                 defaultVar[targetLabel].update({"autoscale_group": autoscale_group})
                 defaultVar[targetLabel].update({"launch_templates": launch_templates})
             elif self.svc_type == 'ecs':
-                defaultVar[targetLabel].update({"task_defs": task_defs})
-                defaultVar[targetLabel].update({"tdef_arn": tdef_arn})
+                defaultVar[targetLabel].update({"elb_apps": elb_main})
+                defaultVar[targetLabel].update({"ecs_clusters": ecs_main})
                 defaultVar[targetLabel].update({"ecr_imgs": ecr_imgs})
 
-            option = "main_%s" % account['all']
-            mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
-            writeYaml(defaultVar, mainIn)
-            yaml_main = "%s.yaml" % mainIn
-            account_replace(yaml_main, str(targetLabel), "<environment_placeholder>")
-            account_replace(yaml_main, str(acctID), str(simple_id))
-            account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
 
 
             # add Policies
             role_list = []
             role_policies = []
-
+            # print("---role in")
             for role in roles:
+                # print("role: %s" % role['name'])
                 rName = role['name']
                 rData = role['data']
                 rDescribe = "Default-no description found"
@@ -368,7 +509,7 @@ class ContainerMolder():
                     "trust_policy_filepath": "{{ role_path }}/files/%s" % rfile,
                     "type": "role",
                     "state": "present",
-                    "path": rData['Path'],
+                    "aws_path": rData['Path'],
                     "description": rDescribe
                 }
                 # polices are in seperate list!!!!!
@@ -385,6 +526,8 @@ class ContainerMolder():
                     rPolicy = {
                         "name": rpName,
                         "state": "present",
+                        "aws_path": rpPath,
+                        "description": rpDescription,
                         "type": "policy",
                         "policy_document": "{{ role_path }}/files/%s" % pfile
                     }
@@ -392,10 +535,27 @@ class ContainerMolder():
                 roleIn.update({"action_policy_labels": plcyNames})
                 role_list.append(roleIn)
                 # CREATE POLICIES
+                
+
 
             defaultVar[targetLabel].update({"policies": role_policies})
             defaultVar[targetLabel].update({"roles": role_list})
-
+            option = "main_%s" % account['all']
+            mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
+            writeYaml(defaultVar, mainIn)
+            yaml_main = "%s.yaml" % mainIn
+            account_replace(yaml_main, str(targetLabel), "<environment_placeholder>")
+            account_replace(yaml_main, str(acctID), str(simple_id))
+            account_replace(yaml_main, "<environment_placeholder>", str(targetLabel))
+            ALL_MAPS = [DOMAIN_MAP, NETWORK_MAP]
+            ########################################################
+            ########################################################
+            # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
+            file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS)
+            # STRING REPLACE ON ALL MAPS ---ENDS-- here #####
+            ########################################################
+            ########################################################
+            
         if sendto:
             logger.info('Creating a main.yaml for ansible using dev')
             opt = "main_%s.yaml" % accountOrigin['all']
@@ -410,11 +570,13 @@ class ContainerMolder():
             # targets = ['%s' % target]
 
             targets = [target_file]
-            rootYML = [{"name": "micro modler for lambda-%s" % target,
+            rootYML = [{"name": "micro modler for Container-%s" % target,
                         "hosts": "dev",
                         "remote_user": "root",
                         "roles": targets}]
             # ansibleRoot
+            print(ansibleRoot)
+            print(target_file)
             writeYaml(rootYML, ansibleRoot, target_file)
 
         self.finalDir_output = rootFolder

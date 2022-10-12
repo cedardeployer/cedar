@@ -228,6 +228,13 @@ class LambdaMolder():
         taskMain, rootFolder, targetLabel = ansibleSetup(self.temp, target_file, isFullUpdate)
         if layers:
             print("Layer functions currently not supported!!")
+            final_layers = []
+            for tl in layers:
+                if acctID in tl:
+                    print("local layer found... removing...%s" % (tl))
+                    continue
+                final_layers.append(tl)
+            layers = final_layers
             # taskMain.insert(2, {"import_tasks":  "../aws/layers.yml", "vars": {"project": '{{ project }}'}})
         ###########################
         # AUTH LAMBDAS
@@ -313,6 +320,7 @@ class LambdaMolder():
         #     mapfile = accountOrigin['services_map']
         #     serviceMap = loadServicesMap(mapfile, None)
 
+        files_attached = []
         for akey, account in accounts.items():
             default_region = 'us-east-1'
             if akey == acctPlus:
@@ -358,6 +366,9 @@ class LambdaMolder():
                 trustIn = "%s/%s/%s" % (rootFolder, 'files', rNamePlcy)
                 # print ".... dude.....look up......"
                 rfile = writeJSON(rData['AssumeRolePolicyDocument'], trustIn)
+                pfile_x ="/".join(trustIn.split('/')[:-1])+ "/"+ rfile
+                if pfile_x not in files_attached:
+                    files_attached.append(pfile_x)
                 # print (role)
                 # exit()
                 roleIn = {
@@ -371,7 +382,7 @@ class LambdaMolder():
                 # polices are in seperate list!!!!!
                 plcies = role['policies']
                 plcyNames = []
-                print(plcies)
+                # print(plcies)
                 # raise
                 for rp in plcies:
                     rpName = rp['PolicyName']
@@ -380,6 +391,9 @@ class LambdaMolder():
                     rpPath = rp['Path']
                     fpIn = "%s/%s/%s" % (rootFolder, 'files', rpName)
                     pfile = writeJSON(rpDoc, fpIn)
+                    pfile_x ="/".join(fpIn.split('/')[:-1])+ "/"+ pfile
+                    if pfile_x not in files_attached:
+                        files_attached.append(pfile_x)
                     plcyNames.append(rpName)
                     rPolicy = {
                         "name": rpName,
@@ -595,6 +609,14 @@ class LambdaMolder():
             ########################################################
             # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
             file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS)
+            for file_in in files_attached:
+                tmp_dir =  "%s/files_%s" % (rootFolder, account['all'])
+                match_dir = "%s/%s" % (rootFolder, 'files')
+                if not os.path.exists(tmp_dir):
+                     os.makedirs(tmp_dir)
+                dst = "%s/%s" % (tmp_dir, file_in.split(match_dir)[1])
+                copyfile(file_in, dst)
+                file_replace_obj_found(dst, akey, acctPlus, ALL_MAPS, True)
             # STRING REPLACE ON ALL MAPS ---ENDS-- here #####
             ########################################################
             ########################################################
@@ -674,8 +696,12 @@ class LambdaMolder():
 
         for bucket in allS3:
             bname = bucket['Name']
-            response = client.get_bucket_notification_configuration(
-                Bucket=bname)
+            try:
+                response = client.get_bucket_notification_configuration(Bucket=bname)
+            except Exception as e:
+                print(" bucket not found: %s" % bname)
+                print(e)
+                continue
             if 'LambdaFunctionConfigurations' in response:
                 for config in response['LambdaFunctionConfigurations']:
                     if target in config['LambdaFunctionArn'] or '*' == target:

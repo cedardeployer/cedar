@@ -131,7 +131,7 @@ def describe_role(name, aconnect, acct, apiTRigger=False):
     client = aconnect.__get_client__('iam')
     #client = boto3.client('iam')
     if "/" in name:
-        name = name.split("/")[1]
+        name = name.split("/")[-1]
     # print(name)
     #print(". oo kkk  ooo k kok")
     roleData = client.get_role(RoleName=name)['Role']

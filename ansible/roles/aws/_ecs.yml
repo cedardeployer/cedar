@@ -1,2 +1,163 @@
 ---
-# This playbook deploys the whole application stack in this site.
+
+# ECS
+
+- name: ecs [ECS] cluster creation
+  ecs_cluster:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    delay: "{{ item.delay}}"
+    repeat: "{{ item.repeat}}"
+  with_items: "{{ project.clusters }}"
+  register: clusters
+
+
+- name: ecs [ECS] [TaskDefinition] creating NOT executionRolearn
+  ecs_taskdefinition:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
+    containers: "{{ item.containerDefinitions }}"
+    state: present
+    launch_type: "{{ item.launchType | default('FARGATE') }}"
+    memory: "{{ item.memory }}"
+    family: "{{ item.family }}"
+    cpu: "{{ item.cpu }}"
+    network_mode: "{{ item.networkMode }}"
+  register: svcs_output2
+  when: "{{ item.containerDefinitions is defined and item.executionRoleArn is not defined }}"
+  with_items: "{{ project.ecs_clusters.task_definitions }}"
+
+
+
+- name: ecs [ECS] [TaskDefinition] creating w/ executionRolearn
+  ecs_taskdefinition:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
+    containers: "{{ item.containerDefinitions }}"
+    state: present
+    launch_type: "{{ item.launchType | default('FARGATE') }}"
+    memory: "{{ item.memory }}"
+    family: "{{ item.family }}"
+    execution_role_arn: "{{ item.executionRoleArn }}"
+    cpu: "{{ item.cpu }}"
+    network_mode: "{{ item.networkMode }}"
+  register: svcs_output2
+  when: "{{ item.containerDefinitions is defined and item.executionRoleArn is defined }}"
+  with_items: "{{ project.ecs_clusters.task_definitions }}"
+
+- ecs_taskdefinition_info:
+    task_definition: "{{item.family}}"
+  register: taskdefs
+  with_items: "{{ project.ecs_clusters.task_definitions }}" 
+
+- name: echo task def below
+  debug:
+    msg: "{{item.family}}"
+  with_items: "{{ taskdefs }}"
+
+- name: ecs [ECS] [SERVICE] START creating w/ vpn
+  ecs_service:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
+    state: "{{ project.ecs_clusters.services(item.family).state }}"
+    name: "{{ project.ecs_clusters.services(item.family).name }}"
+    cluster: "{{ project.ecs_clusters.services(item.family).cluster }}"
+    task_definition: "{{ project.ecs_clusters.services(item.family).taskDefinition }}"  #TODO requires a list from latest definition and version
+    desired_count: "{{ project.ecs_clusters.services(item.family).desiredCount }}"
+    placement_constraints: "{{ project.ecs_clusters.services(item.family).placementConstraints }}"
+    deployment_configuration: "{{ project.ecs_clusters.services(item.family).deploymentConfiguration }}"
+    placement_strategy: "{{ project.ecs_clusters.services(item.family).placementStrategy }}"
+    # load_balancers: "{{ item.loadBalancers }}"
+    # network_configuration: "{{ item.networkConfiguration }}"
+    service_registries: "{{ project.ecs_clusters.services(item.family).serviceRegistries }}"
+    scheduling_strategy: "{{ project.ecs_clusters.services(item.family).schedulingStrategy }}"
+    health_check_grace_period_seconds: "{{ project.ecs_clusters.services(item.family).healthCheckGracePeriodSeconds }}"
+    # role: "{{ item.role }}"
+    # launch_type: "{{ item.launchType }}"
+  register: ecs_services01
+  with_items: "{{ taskdefs }}"
+
+
+
+
+
+
+- name: set [ECS] [SERVICE] from CREATED
+  set_fact:
+    access: "{{  ecs_services01.sts_creds.access_key }}"
+    secret: "{{  assumed_role.sts_creds.secret_key }}"
+    token: "{{  assumed_role.sts_creds.session_token }}"
+  when: "assumed_role.changed == True"
+
+
+# - name: ecs [ECS] [TaskDefinition] creating 
+#   ecs_taskdefinition:
+#     aws_access_key: "{{ access }}"
+#     aws_secret_key: "{{ secret }}"
+#     security_token: "{{ token }}"
+#     region: "{{project.region | default(null)}}"
+#     containers: "{{ item.containerDefinitions }}"
+#     family: "{{ item.family }}"
+#     state: present
+#     revision: "{{ item.revision | default(null) }}"
+#     launch_type: "{{ item.launchType }}"
+#     memory: "{{ item.memory }}"
+#     family: "{{ item.family }}"
+#     execution_role_arn: "{{ item.executionRoleArn }}"
+#     cpu: "{{ item.cpu }}"
+#     network_mode: "{{ item.networkMode }}"
+#   register: task_output2
+#   # when: "{{ item.containerDefinitions is defined }}"
+#   with_items: "{{ project.ecs_clusters.task_definitions }}"
+
+
+# - name: RUN a task on Fargate
+#   ecs_task:
+#       operation: run
+#       cluster: console-sample-app-static-cluster
+#       task_definition: console-sample-app-static-taskdef
+#       task: "arn:aws:ecs:us-west-2:172139249013:task/3f8353d1-29a8-4689-bbf6-ad79937ffe8a"
+#       started_by: DELETEME
+#       launch_type: FARGATE
+#       network_configuration:
+#         subnets:
+#         - subnet-abcd1234
+#         security_groups:
+#         - sg-aaaa1111
+#         - my_security_group
+#   register: task_output
+
+
+# - name: create ECS service on VPC network
+#   ecs_service:
+#     state: present
+#     name: DELETEMENOW
+#     cluster: new_cluster
+#     task_definition: 'new_cluster-task:1'
+#     desired_count: 0
+
+#     deployment_configuration:
+#       minimum_healthy_percent: 75
+#       maximum_percent: 150
+#     placement_constraints:
+#       - type: memberOf
+#         expression: 'attribute:flavor==test'
+#     placement_strategy:
+#       - type: binpack
+#         field: memory
+#     network_configuration:
+#       subnets:
+#       - subnet-abcd1234
+#       security_groups:
+#       - sg-aaaa1111
+#       - my_security_group

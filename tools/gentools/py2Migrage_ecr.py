@@ -1,7 +1,9 @@
 
-from atexit import register
+# from atexit import register
+from asyncio import subprocess
 import os
 import base64
+import subprocess
 import docker
 import sys
 import boto3
@@ -67,8 +69,15 @@ class MigrationECR:
                 pruned = self.docker_client.images.prune(filters={'dangling': False})
                 print("pruned: {}".format(pruned))
         except Exception as e:
-            print("[E] Docker not installed or not running")
-            raise
+            msg = "[E] Docker not installed or not running...please run docker first"
+            cmd = ["open", "--background", "-a", "Docker"]
+            # subprocess.call(cmd)
+            # open --background -a Docker &&
+            #     while ! docker system info > /dev/null 2>&1; do sleep 1; done &&
+            #     docker run busybox
+
+            print(msg)
+            # raise Exception(msg)
         self.verbose = verbose
 
     def ecr_token_login(self, ecr: Repository):
@@ -144,6 +153,57 @@ class MigrationECR:
             """.format(e))
             sys.exit(1)
 
+    def ecs_get_clusters(self):
+        aconnect = self.ecr_to.aconnect
+        ecs_client = aconnect.__get_client__("ecs")
+        clusters = ecs_client.list_clusters()
+        return clusters
+    
+    def ecs_all_services(self, clusters):
+        services_in = {}
+        for cluster in clusters['clusterArns']:
+            cluster_name = cluster.split('/')[-1]
+            services = self.ecs_get_running_services(cluster_name)
+            for svc in services:
+                service_name = svc.split('/')[-1]
+                services_in[service_name] = cluster_name
+        return services_in
+
+    def ecs_get_running_services(self, cluster_name):
+        aconnect = self.ecr_to.aconnect
+        ecs_client = aconnect.__get_client__("ecs")
+        response = ecs_client.list_services(cluster=cluster_name)
+        services = response['serviceArns']
+        return services
+
+    def ecs_all_stop(self, cluster_name):
+        aconnect = self.ecr_to.aconnect
+        ecs_client = aconnect.__get_client__("ecs")
+        services = self.ecs_get_running_services(cluster_name)
+        for service in services:
+            service_name = service.split('/')[-1]
+            self.ecs_service_stop(cluster_name, service_name)
+            # self.ecs_task_stop(cluster_name, service_name)
+
+
+    def ecs_service_stop(self, cluster_name, service_name):
+        aconnect = self.ecr_to.aconnect
+        ecs_client = aconnect.__get_client__("ecs")
+        response = ecs_client.update_service(cluster=cluster_name, service=service_name,forceNewDeployment=True)
+        print("..............forceNewDeployment on service: {}".format(service_name))
+        # print("Stopping service response: {}".format(response))
+
+    def ecr_get_reps(self):
+        aconnect = self.ecr_from.aconnect
+        ecr_client = aconnect.__get_client__("ecr")
+        reps = ecr_client.describe_repositories()['repositories']
+        return [ rr['repositoryName'] for rr in reps ]
+    
+    def name_matches(self, name, tomatch, wildcard=False):
+        if wildcard:
+            return name.startswith(tomatch)
+        return name == tomatch
+
     def migrate(self):
         if self.ecr_from and self.ecr_to:
             list_images_from = self.get_images(self.ecr_from)
@@ -159,9 +219,16 @@ class MigrationECR:
             raise Exception("Missing variables: {} or {}".format("ecr_from", "ecr_to"))
 
 
-#python py2Migration_ecr.py dev "test" "tf-pp-ms-vindecoding" true ENVR.yaml 
+#python py2Migration_ecr.py dev "test" "tf-pp-*" true ENVR.yaml -onlyreset
 
 if __name__ == '__main__':
+    if "help" in sys.argv or "-help" in sys.argv or "--help" in sys.argv:
+        print("Usage: python py2Migration_ecr.py <from_profile> <to_profile> <repository_name> <only_reset> <envr_file> [-onlyreset]")
+        print('Example: python py2Migrage_ecr.py dev2 "uat2" "qq-ss-ms-claims" true ENVR.yaml')
+        print("   OR  ***the below uses '*' as wildcard to match, starting with, all repositories/services**")
+        print("Example: python py2Migration_ecr.py dev test qq-ss-* true ENVR.yaml -onlyreset")
+        print("   (** use -onlyreset to -ONLY- reset the services, -NOT- migrate the images)")
+        sys.exit(0)
     if len(sys.argv) < 5:
         print("Usage requires more arguments")
         sys.exit(1)
@@ -169,7 +236,14 @@ if __name__ == '__main__':
     source_environment = sys.argv[1]
     target_environments = str(CMD_STRING[2]).strip().split(",")
     target = sys.argv[3]
+    wildcard = False
+    if '*' in target:
+        wildcard = True
+        target = target.replace('*', '')
     config = sys.argv[5]
+    reset_only = False
+    if len(sys.argv) > 6:
+        reset_only = "-onlyreset" in sys.argv[6]
 
 
     fullpath = "%s/%s" % (dir_path, config)
@@ -184,17 +258,45 @@ if __name__ == '__main__':
             break
 
 
+    
     print("...loading configs")
     region = 'us-east-1'
 
-    erc_repo = "tf-pp-ms-vindecoding"
+    erc_repo = None
     iam = IAM_SESSION(s_origin['account'], s_origin['eID'], s_origin['role_definer'], region)
     # r1_from = Repository(aconnect, "ecr_repo_name", "us-west-2", "629xxxxxxxx", specific_tag="v1.1", profile="ccc-prod")
     r1_from = Repository(iam.aconnect, erc_repo, region, s_origin['account'])
     iam2 = IAM_SESSION(target_acct['account'], target_acct['eID'], target_acct['role'], region)
     # r2_to = Repository(aconnect2, "ecr_repo_name", "us-west-1", "804xxxxxxxxx", specific_tag="v1.1", profile="ccc-uat")
     r2_to = Repository(iam2.aconnect, erc_repo, region, target_acct['account'])
-    print("...start migration")
+
+
     migration = MigrationECR(r1_from, r2_to, verbose=True)
-    print("...migrating")
-    migration.migrate()
+    images = migration.ecr_get_reps()
+
+    if not reset_only:
+        for img in images:
+            found = migration.name_matches(img, target, wildcard)
+            if found:
+                r1_from.repository_name=img
+                r2_to.repository_name=img
+                print("...start migration :%s" % img)
+                print("...migrating")
+                migration.migrate()
+    else:
+        print("...reset only")
+    clusters = migration.ecs_get_clusters()
+    all_svcs = migration.ecs_all_services(clusters)
+    for svc, cluster in all_svcs.items():
+        found = migration.name_matches(svc, target, wildcard)
+        if found:
+            print("...resetting cluster:%s service: %s" % (cluster, svc))
+            migration.ecs_service_stop(cluster, svc)
+
+
+    
+
+
+
+
+

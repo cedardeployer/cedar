@@ -1,21 +1,71 @@
 ---
-# This playbook deploys the whole application stack in this site.
-- name: set project from vars vpc
-  set_fact:
-    project: "{{ GED }}"
+
+# Create an ALB with listeners and rules
 
 
-# ECS
 
-- name: roles ensure state is correct
-  iam:
+- name: ELB target group [ELB] create/set w VPC
+  elb_target_group:
     aws_access_key: "{{ access }}"
     aws_secret_key: "{{ secret }}"
     security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
+    name: "{{ item.name }}"
+    state: "{{ item.state | default('present') }}"
+    protocol: "{{item.protocol | default('http')}}"
+    port: "{{ item.port | default(null)}}"
+    health_check_interval: "{{ item.health_check_interval | default(25)}}"
+    health_check_path: "{{ item.health_check_path | default(null)}}"
+    health_check_port: "{{ item.health_check_port | default('traffic-port')}}"
+    health_check_protocol: "{{ item.health_check_protocol | default('HTTP')}}"
+    health_check_timeout: "{{ item.vphealth_check_timeoutcId | default('7')}}"
+    # healthy_threshold_count: "{{ item.healthy_threshold_count | default(null)}}"
+    target_type: "{{ item.target_type | default('IP')}}"
+    vpc_id: "{{ item.vpcId }}"
+  register: out_targets
+  when: "item.vpcId is defined and item.health_check_protocol is defined"
+  with_items: "{{ project.elb_apps.target_groups }}"
+
+# - name: ELB target group [ELB] create/set w VPC
+#   elb_target_group:
+#     aws_access_key: "{{ access }}"
+#     aws_secret_key: "{{ secret }}"
+#     security_token: "{{ token }}"
+#     region: "{{project.region | default(null)}}"
+#     name: "{{item.name | default(null)}}"
+#     state: "{{ item.state | default('present') }}"
+#     protocol: "{{item.protocol | default(null)}}"
+#     port: "{{ item.port | default(null)}}"
+#     modify_targets: "{{ item.modify_targets | default(null)}}"
+#     health_check_interval: "{{ item.health_check_interval | default(null)}}"
+#     health_check_path: "{{ item.health_check_path | default(null)}}"
+#     health_check_port: "{{ item.health_check_port | default(null)}}"
+#     health_check_protocol: "{{ item.health_check_protocol | default(null)}}"
+#     health_check_timeout: "{{ item.vphealth_check_timeoutcId | default(null)}}"
+#     healthy_threshold_count: "{{ item.healthy_threshold_count | default(null)}}"
+#     target_type: "{{ item.target_type | default(null)}}"
+#     targets: "{{ item.targets | default(null)}}"
+#     vpc_id: "{{ item.vpcId | default(null)}}"
+#   register: out_targets
+#   when: "item.vpcId is defined"
+#   with_items: "{{ project.elb_apps.target_groups }}"
+
+
+
+
+
+
+- name: APPLICATION [ELB] create/set w/ VPC
+  elb_application_lb:
+    aws_access_key: "{{ access }}"
+    aws_secret_key: "{{ secret }}"
+    security_token: "{{ token }}"
+    region: "{{project.region | default(null)}}"
     name: "{{ item.name }}"
     state: "{{ item.state }}"
-    trust_policy_filepath: "{{ item.trust_policy_filepath }}"
-  with_items: "{{ project.vpcs }}"
-
-
-
+    subnets: "{{ item.subnets }}"
+    security_groups: "{{ item.security_groups }}"
+    scheme: "{{ item.scheme }}"
+    listeners: "{{ item.listeners }}"
+  when: "item.type=='application'"
+  with_items: "{{ project.elb_apps.elbs }}"
