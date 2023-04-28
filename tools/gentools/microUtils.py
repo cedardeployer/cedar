@@ -336,7 +336,7 @@ def writeJSON(data, filepath, option=''):
 
 def account_replace(filein, num2Search, newNumber, verify=False):
     # Read in the file
-    with open(filein, 'r') as file:
+    with open(filein, 'rb') as file:
         filedata = file.read()
 
     index = 0
