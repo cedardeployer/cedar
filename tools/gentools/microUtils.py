@@ -335,22 +335,22 @@ def writeJSON(data, filepath, option=''):
 
 
 def account_replace(filein, num2Search, newNumber, verify=False):
-    # Read in the file
-    if ".pdf" in filein:
-        return
-    with open(filein, 'r') as file:
-        filedata = file.read()
+    # Only .json files
+    if ".json" in filein:
+        # Read in the file
+        with open(filein, 'r') as file:
+            filedata = file.read()
 
-    index = 0
-    if verify:
-        index = filedata.find(newNumber)
-    if index <= 0:
-        # Replace the target string
-        filedata = filedata.replace(num2Search, newNumber)
+        index = 0
+        if verify:
+            index = filedata.find(newNumber)
+        if index <= 0:
+            # Replace the target string
+            filedata = filedata.replace(num2Search, newNumber)
 
-    # Write the file out again
-    with open(filein, 'w') as file:
-        file.write(filedata)
+        # Write the file out again
+        with open(filein, 'w') as file:
+            file.write(filedata)
 
 
 def account_replace_inline(filein, match, target_value, new_value):
