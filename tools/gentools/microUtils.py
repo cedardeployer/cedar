@@ -336,7 +336,7 @@ def writeJSON(data, filepath, option=''):
 
 def account_replace(filein, num2Search, newNumber, verify=False):
     # Read in the file
-    if [".pdf"] in filein:
+    if ".pdf" in filein:
         return
     with open(filein, 'r') as file:
         filedata = file.read()
