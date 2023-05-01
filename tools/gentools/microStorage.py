@@ -92,10 +92,15 @@ class StorageMolder():
         s3_client = aconnect.__get_client__('s3')
         response = s3_client.list_objects_v2(Bucket=target, Prefix=path)
         files = []
-        for obj in response['Contents']:
-            if obj['Key'].endswith('/'):
-                continue
-            files.append(obj['Key'])
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                if obj['Key'].endswith('/'):
+                    continue
+                files.append(obj['Key'])
+        else:
+            msg="No files found in bucket %s" % path
+            print(msg)
+            raise Exception(msg)
         return files
 
     def behavior_describe(self, target, aconnect):

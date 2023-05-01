@@ -8,7 +8,8 @@
 import configparser
 import re
 from time import sleep
-import os
+import os    
+from chardet import detect
 import time
 import random
 import shutil
@@ -309,8 +310,15 @@ def file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS , entire_file=Fal
             # if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
             #     logger.warning(f'Dangerous replace found: {key} - skipping {value} for {typeObj[key]}')
             #     continue
-            if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
-                logger.warning(f'Dangerous replace found: {key} - executing replace {value} for {typeObj[key]}')
+            if 'api_core' in key:
+                print("[%s] key %s value %s" % (akey, key, value))
+                print(typeObj)
+            try:
+                if len(str(value)) < 5 or len(str(typeObj[key])) < 5:
+                    logger.warning(f'Dangerous replace found: {key} - executing replace {value} for {typeObj[key]}')
+            except Exception as ex:
+                print(f'Error during replace: {key} - executing replace {value} for {typeObj}')
+                Exception("[E] please fix  restricted.yaml to be the same at %s" % key) 
             account_replace(yaml_main, str(value), str(typeObj[key]))
 
 
@@ -333,10 +341,19 @@ def writeJSON(data, filepath, option=''):
         json.dump(data, outfile, cls=CommonEncoder, indent=4)
     return fullpath.rsplit("/", 1)[1]
 
+# get file encoding type
+def get_encoding_type(file):
+    with open(file, 'rb') as f:
+        rawdata = f.read()
+    return detect(rawdata)['encoding']
 
 def account_replace(filein, num2Search, newNumber, verify=False):
     # Read in the file
-    with open(filein, 'r') as file:
+    # print("-=-=-=-=-=---=-==----=-=-=-=-=-")
+    # print(filein)
+    # print("-=-=-=-=-=---=-==----=-=-=-=-=-")
+    # with open(filein, 'r', encoding = get_encoding_type, errors='ignore') as file:
+    with open(filein, 'r', errors='ignore') as file:
         filedata = file.read()
 
     index = 0

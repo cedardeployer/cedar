@@ -93,13 +93,19 @@ def cd_permit_lambda(  module, client, name, event_source, account ):
   id = "%s_%s" % (name, event_source['name'])
   # replace all non-alphanumeric characters with underscore
   id = re.sub('[^0-9a-zA-Z]+', '_', id)
-  principle = 's3.amazonaws.com'
-  s_arn = "arn:aws:s3:::%s" % event_source['name']
+  if event_source['type'] == 's3':
+    principle = 's3.amazonaws.com'
+    s_arn = "arn:aws:s3:::%s" % event_source['name']
+  elif event_source['type'] == 'api-gw':
+    principle = 'apigateway.amazonaws.com'
+    # "AWS:SourceArn":"arn:aws:execute-api:[REGION]:[ACCOUNT_ID]:[API_ID]/*/[HTTP_VERB]/[RESOURCE_PATH]"}},
+    # s_arn = "arn:aws:execute-api:%s:%s:%s/*" % (module.region, account, event_source['name'])
+    s_arn = "arn:aws:execute-api:%s:%s:%s" % (module.region, account, event_source['name'])
   cd_destroy( module, client, name, event_source, True)
   try:
     # content=
     response = client.add_permission(FunctionName=name,  StatementId=id,  Action='lambda:InvokeFunction',  
-                    Principal=principle,  SourceArn=s_arn,  SourceAccount=account)
+                                            Principal=principle,  SourceArn=s_arn,  SourceAccount=account)
     found=False
   except ClientError as e:
     msg=e.response['Error']['Message']

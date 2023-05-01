@@ -148,7 +148,10 @@ def deployStart(target_name, accounts, targets, role, static_path=None, HardStop
                 src_dir = f"../../ansible/roles/{role}/files_{v['all']}"
                 dst_dir = f"../../ansible/roles/{role}/files"
                 # copytree(src_dir, dst_dir, dir_exists_ok=True)
-                copy_tree(src_dir, dst_dir)
+                if os.path.exists(src_dir):
+                    copy_tree(src_dir, dst_dir)
+                else:
+                    print(f'No files for {src_dir}')
                 # print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
                 # print(src_dir)
                 # print(dst_dir)
