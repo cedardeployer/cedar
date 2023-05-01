@@ -26,6 +26,7 @@ from tools.gentools.microUtils import ansibleSetup, file_replace_obj_found
 from tools.gentools.microUtils import describe_role
 from tools.gentools.microUtils import loadServicesMap
 from tools.gentools.microUtils import s3_get
+
 # from tools.gentools.microUtils import config_updateRestricted
 
 # sudo ansible-playbook -i windows-servers CR-Admin-Users.yml -vvvv
@@ -50,7 +51,7 @@ class StorageMolder():
     def __init__(self, directory, svc="-S3C", root=None):
         global dir_path
         self.svc_type = 's3c' if "S3C" in svc else 's3'
-        
+
         self.directory = directory
         if root:
             temp = "%s/%s" % (root, directory)
@@ -64,20 +65,20 @@ class StorageMolder():
 
     def source_policy_append(self, policy, source, target, sourcebucket):
         statement = {
-                "Sid": f"{ self.cedar_statement_name }",
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": f'["{target}", "{source}"]'
-                },
-                "Action": [
-                    "s3:ListBucket",
-                    "s3:GetObject"
-                ],
-                "Resource": [
-                    f"arn:aws:s3:::{sourcebucket}/*",
-                    f"arn:aws:s3:::{sourcebucket}"
-                ]
-            }
+            "Sid": f"{self.cedar_statement_name}",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": f'["{target}", "{source}"]'
+            },
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject"
+            ],
+            "Resource": [
+                f"arn:aws:s3:::{sourcebucket}/*",
+                f"arn:aws:s3:::{sourcebucket}"
+            ]
+        }
         for s in policy['Statement']:
             if s['Sid'] == self.cedar_statement_name:
                 del s
@@ -98,18 +99,18 @@ class StorageMolder():
         return files
 
     def behavior_describe(self, target, aconnect):
-        #client = boto3.client('lambda')
+        # client = boto3.client('lambda')
         s3_client = aconnect.__get_client__('s3')
         s3_resource = aconnect.__get_resource__('s3')
         print(target)
         policy_str = s3_client.get_bucket_policy(Bucket=target)
         policy_raw = json.loads(policy_str['Policy'])
-        #what roles found?
+        # what roles found?
         # root_source = f"arn:aws:iam::{self.source_tmp_acct}:root"
         # root_target = f"arn:aws:iam::{self.source_acct}:root"  #this will be replaced with target later
         roles_final = []
         for s in policy_raw['Statement']:
-            #find role in statements
+            # find role in statements
             if 'Principal' in s:
                 if 'AWS' in s['Principal']:
                     prince = s['Principal']['AWS']
@@ -125,12 +126,12 @@ class StorageMolder():
         bucket_cors = s3_client.get_bucket_cors(Bucket=target)
         if bucket_cors:
             bucket_cor = bucket_cors['CORSRules'][0]
-            bucket_cors =[{
-                "allowed_origins" : bucket_cor['AllowedOrigins'],
-                "allowed_methods" : bucket_cor['AllowedMethods'],
-                "allowed_headers" : bucket_cor['AllowedHeaders'],
-                "expose_headers" : bucket_cor['ExposeHeaders'],
-                "max_age_seconds" : bucket_cor['MaxAgeSeconds']
+            bucket_cors = [{
+                "allowed_origins": bucket_cor['AllowedOrigins'],
+                "allowed_methods": bucket_cor['AllowedMethods'],
+                "allowed_headers": bucket_cor['AllowedHeaders'],
+                "expose_headers": bucket_cor['ExposeHeaders'],
+                "max_age_seconds": bucket_cor['MaxAgeSeconds']
             }]
         lambda_triggers = []
         if bucket_triggers:
@@ -139,9 +140,9 @@ class StorageMolder():
 
                 for lt in lambda_fires:
                     trigger = {
-                        "state" : "present",
-                        "bucket" : target,
-                        "id" : lt['Id'],
+                        "state": "present",
+                        "bucket": target,
+                        "id": lt['Id'],
                         "lambda_arn": lt['LambdaFunctionArn'],
                         "events": lt['Events'],
                     }
@@ -156,15 +157,14 @@ class StorageMolder():
                                 trigger['suffix'] = fk['Value']
                     lambda_triggers.append(trigger)
 
-       
         # policies = {"copy": policy, "stable": policy_raw}
         return {
-                'name': target,
-                'statement_copy': self.cedar_statement_name,
-                'target': target,
-                'roles': roles_final,
-                "state": "present", # "has_instances",
-            }, policy_raw , lambda_triggers, bucket_cors
+            'name': target,
+            'statement_copy': self.cedar_statement_name,
+            'target': target,
+            'roles': roles_final,
+            "state": "present",  # "has_instances",
+        }, policy_raw, lambda_triggers, bucket_cors
 
     # cluster K8 -CK
     #  python microMolder.py -CK policyport-clover-dev true ENVR.yaml
@@ -201,8 +201,7 @@ class StorageMolder():
         roles = []
         for rrls in containerObj['roles']:
             rle, resourceRole = describe_role(rrls, aconnect, self.origin['account'], False)
-            roles= roles + rle
-
+            roles = roles + rle
 
         target_file = '%s_%s' % (acctID, target)
 
@@ -265,11 +264,11 @@ class StorageMolder():
         if s3_policy:
             fpIn = "%s/%s/%s" % (rootFolder, 'files', "s3_policy")
             pfile = writeJSON(s3_policy, fpIn)
-            pfile_x ="/".join(fpIn.split('/')[:-1])+ "/"+ pfile
+            pfile_x = "/".join(fpIn.split('/')[:-1]) + "/" + pfile
             files_attached.append(pfile_x)
             bucket_in['policy_document'] = "{{ role_path }}/files/%s" % pfile
         if bucket_cors:
-            bucket_in['cors']= bucket_cors
+            bucket_in['cors'] = bucket_cors
         #####################################################
         #####################################################
         #### [START]  COPY FILES FIRST  #####################
@@ -290,7 +289,7 @@ class StorageMolder():
                         if not os.path.exists(dir):
                             os.makedirs(dir)
                         s_file, s_ext = os.path.splitext(nf)
-                        if s_ext in ['.json', '.yaml', '.yml','.js','.txt'] or '.env.' in nf:
+                        if s_ext in ['.json', '.yaml', '.yml', '.js', '.txt'] or '.env.' in nf:
                             files_attached.append(fpIn)
                         s3_get(self.source_bucket, nf, fpIn, aconnect.__get_resource__('s3'))
                         s3_file.update({'name': nf, "s3_document": "{{ role_path }}/files/bucket/%s" % nf})
@@ -301,13 +300,13 @@ class StorageMolder():
                     if not os.path.exists(dir):
                         os.makedirs(dir)
                     s_file, s_ext = os.path.splitext(s3file)
-                    if s_ext in ['.json', '.yaml', '.yml','.js','.txt']:
+                    if s_ext in ['.json', '.yaml', '.yml', '.js', '.txt']:
                         files_attached.append(fpIn)
 
                     s3_get(self.source_bucket, s3file, fpIn, aconnect.__get_resource__('s3'))
                     s3_file.update({'name': s3file, "s3_document": "{{ role_path }}/files/bucket/%s" % s3file})
                     final_targets.append(s3_file)
-            if final_targets: #simplify
+            if final_targets:  # simplify
                 bucket_in.update({'bucket_dir': "{{ role_path }}/files/bucket"})
 
         #####################################################
@@ -342,8 +341,7 @@ class StorageMolder():
                 "policies": [],
                 "buckets": [],
             }
-            
-            
+
             if assumeRole:
                 accDetail.update({"cross_acct_role": account['role']})
             defaultVar = {targetLabel: accDetail}
@@ -363,7 +361,7 @@ class StorageMolder():
                 trustIn = "%s/%s/%s" % (rootFolder, 'files', rNamePlcy)
                 # print ".... dude.....look up......"
                 rfile = writeJSON(rData['AssumeRolePolicyDocument'], trustIn)
-                pfile_x ="/".join(trustIn.split('/')[:-1])+ "/"+ rfile
+                pfile_x = "/".join(trustIn.split('/')[:-1]) + "/" + rfile
                 if pfile_x not in files_attached:
                     files_attached.append(pfile_x)
                 # print (role)
@@ -388,7 +386,7 @@ class StorageMolder():
                     rpPath = rp['Path']
                     fpIn = "%s/%s/%s" % (rootFolder, 'files', rpName)
                     pfile = writeJSON(rpDoc, fpIn)
-                    pfile_x ="/".join(fpIn.split('/')[:-1])+ "/"+ pfile
+                    pfile_x = "/".join(fpIn.split('/')[:-1]) + "/" + pfile
                     if pfile_x not in files_attached:
                         files_attached.append(pfile_x)
                     plcyNames.append(rpName)
@@ -414,10 +412,8 @@ class StorageMolder():
             # write files
             #####################################
 
-
             defaultVar[targetLabel].update({"buckets": [bucket_in]})
             defaultVar[targetLabel].update({"bucket_triggers": bucket_triggers})
-            
 
             option = "main_%s" % account['all']
             mainIn = "%s/%s/%s" % (rootFolder, 'defaults', option)
@@ -432,10 +428,10 @@ class StorageMolder():
             # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
             file_replace_obj_found(yaml_main, akey, acctPlus, ALL_MAPS)
             for file_in in files_attached:
-                tmp_dir =  "%s/files_%s" % (rootFolder, account['all'])
+                tmp_dir = "%s/files_%s" % (rootFolder, account['all'])
                 match_dir = "%s/%s" % (rootFolder, 'files')
                 if not os.path.exists(tmp_dir):
-                     os.makedirs(tmp_dir)
+                    os.makedirs(tmp_dir)
                 clean_match = file_in.split(match_dir)[1]
                 dst = "%s/%s" % (tmp_dir, clean_match[1:] if clean_match.startswith("/") else clean_match)
                 dst_dir = "/".join(dst.split('/')[:-1])
