@@ -173,6 +173,7 @@ class LambdaMolder():
         SLACK_MAP = loadServicesMap(accountOrigin['services_map'], 'slack', self.bucket_path)
         SIGNER_MAP = loadServicesMap(accountOrigin['services_map'], 'signer', self.bucket_path)
         DOMAIN_MAP = loadServicesMap(accountOrigin['services_map'], 'domains', self.bucket_path)
+        SEARCH_MAP = loadServicesMap(accountOrigin['services_map'], 'search', self.bucket_path)
         CFRONT_MAP = loadServicesMap(accountOrigin['services_map'], 'cloudfront', self.bucket_path)
         ec2_client = aconnect.__get_client__('ec2')
         REGIONS = describe_regions(ec2_client)
@@ -604,7 +605,7 @@ class LambdaMolder():
             # if account['all'] != accountOrigin['all']:
             #     account_replace(yaml_main, source_env_1, target_env_1)
 
-            ALL_MAPS = [DOMAIN_MAP, BUCKET_MAP, TOKEN_MAP, NETWORK_MAP, COGNITO_MAP, SLACK_MAP, SIGNER_MAP, CFRONT_MAP]
+            ALL_MAPS = [DOMAIN_MAP, BUCKET_MAP, TOKEN_MAP, NETWORK_MAP, COGNITO_MAP, SLACK_MAP, SIGNER_MAP, CFRONT_MAP, SEARCH_MAP]
             ########################################################
             ########################################################
             # STRING REPLACE ON ALL MAPS --BEGINS--- here #####
